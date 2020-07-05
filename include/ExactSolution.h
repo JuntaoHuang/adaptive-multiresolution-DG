@@ -72,11 +72,13 @@ public:
 
 	virtual double exact_1d(const double x, const double t) override;
 
+	
 	virtual double exact_2d(const std::vector<double> x, const double t) override;
 
 	virtual double exact_3d(const std::vector<double> x, const double t) override;
 
 private:
+	double exact_1d(const double x, const double t, const int dim);
 	const double pi = Const::PI;
 	const double rnd_off = Const::ROUND_OFF;
 };

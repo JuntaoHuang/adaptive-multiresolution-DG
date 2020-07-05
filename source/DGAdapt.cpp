@@ -31,6 +31,8 @@ DGAdapt::DGAdapt(const bool sparse_, const int level_init_, const int NMAX_, All
 void DGAdapt::init_separable_scalar(std::function<double(double, int)> scalar_func)
 {
 	// step 1: project function in each dim to basis in 1D
+	// coeff is a two dim vector with size (dim, # all_basis_1D)
+	// coeff.at(d, order) denote the inner product of order-th basis function with initial function in d-th dim
     const VecMultiD<double> coeff = seperable_project(scalar_func);
 
 	// step 2: update coefficient in each element
@@ -101,49 +103,7 @@ void DGAdapt::init_separable_scalar_sum(std::vector<std::function<double(double,
 
     update_order_all_basis_in_dgmap();
 }
-//
-//void DGAdapt::init_separable_system_sum(std::vector<std::vector<std::function<double(double, int)>>> sum_vector_func)
-//{    
-//	// step 1: project function in each dim to basis in 1D
-//    std::vector<std::vector<VecMultiD<double>>> coeff; 
-//    for (size_t index_var = 0; index_var < VEC_NUM; index_var++) // the outside loop of the unknown variables
-//    {
-//        std::vector<VecMultiD<double>> coeff_var;
-//
-//        const int num_func = sum_vector_func[index_var].size();
-//        for (size_t i_func = 0; i_func < num_func; i_func++)
-//        {
-//            // coefficient for i-th function
-//            const VecMultiD<double> coeff_i_func = seperable_project(sum_vector_func[index_var][i_func]);
-//            coeff_var.push_back(coeff_i_func);            
-//        }
-//        coeff.push_back(coeff_var);
-//    }
-//
-//	// step 2: update coefficient in each element
-//	// loop over each element
-//	for (auto &iter : dg)
-//	{
-//        for (size_t index_var = 0; index_var < VEC_NUM; index_var++)
-//        {
-//            const int num_func = sum_vector_func[index_var].size();
-//            for (size_t i_func = 0; i_func < num_func; i_func++)
-//            {
-//                init_elem_separable(iter.second, coeff[index_var][i_func], index_var);
-//            }
-//        }
-//	}
-//    
-//    // step 3: refine recursively
-//    refine_init_separable_system_sum(coeff);
-//
-//    update_order_all_basis_in_dgmap();
-//}
-//
 
-
-
-//void DGAdapt::init_separable_system_sum(std::vector<std::vector<std::function<double(double, int)>>> sum_vector_func, const std::vector<int> & ind_var_vec)
 void DGAdapt::init_separable_system_sum(std::vector<std::vector<std::function<double(double, int)>>> sum_vector_func)
 {
 	assert(sum_vector_func.size() == ind_var_vec.size() && ind_var_vec.size() <= VEC_NUM);
@@ -188,8 +148,6 @@ void DGAdapt::init_separable_system_sum(std::vector<std::vector<std::function<do
 	refine_init_separable_system_sum(coeff);
 
 	update_order_all_basis_in_dgmap();
-
-	std::cout << dg.size() << std::endl;
 }
 
 // the key member function in the DGAdapt class

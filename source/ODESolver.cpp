@@ -1,10 +1,6 @@
 #include "ODESolver.h"
 #include "HamiltonJacobi.h"
 
-const double IMEX43::alpha = 0.24169426078821;
-const double IMEX43::beta = 0.06042356519705;
-const double IMEX43::eta = 0.12915286960590;
-
 ODESolver::ODESolver(BilinearForm & bilinearform):
 	dgoperator_ptr(&bilinearform), dgsolution_ptr(dgoperator_ptr->dgsolution_ptr),
 	dof(dgsolution_ptr->get_dof())
@@ -819,6 +815,10 @@ void IMEXEuler::step_stage(const int stage)
 
 	if (linear_solver_type == "sparselu") { ucoe = sparselu.solve(ucoe_tn + _dt * rhs); }
 }
+
+const double IMEX43::alpha = 0.24169426078821;
+const double IMEX43::beta = 0.06042356519705;
+const double IMEX43::eta = 0.12915286960590;
 
 IMEX43::IMEX43(BilinearForm & bilinearForm_explicit, BilinearForm & bilinearForm_implicit, const double dt, const std::string linear_solver):
 	IMEX(bilinearForm_explicit, bilinearForm_implicit, dt), num_stage(5), linear_solver_type(linear_solver), implicit_linear_matx(dof, dof)

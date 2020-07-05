@@ -71,3 +71,10 @@ std::vector<T> linspace(T start_point, T end_point, size_t num)
     for (x = xs.begin(), val = start_point; x != xs.end(); ++x, val += h) { *x = val; }
     return xs;
 }
+
+template <typename T> std::string to_str(const T & t)
+{
+  std::ostringstream os;
+  os << t;
+  return os.str ();
+}

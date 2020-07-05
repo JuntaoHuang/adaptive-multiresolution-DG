@@ -8,9 +8,10 @@ public:
     Timer() { time_start = std::chrono::high_resolution_clock::now(); };
     ~Timer() {};
 
+    /// print cpu time with a message
     void time(const char* msg);
 
-    // reset start time to be now
+    /// reset start time to be now
     void reset();
 
 protected:

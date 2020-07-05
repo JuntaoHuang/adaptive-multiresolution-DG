@@ -26,53 +26,32 @@ public:
 	static int DIM;
 	static int VEC_NUM;
 	static std::string prob;
-	static std::vector<int> ind_var_vec;	// specify which components of unknown variables involve time evolution
+	static std::vector<int> ind_var_vec;	///< specify which components of unknown variables involve time evolution
 	
-
-	// return maximum mesh level of current active elements in each dimension, a vector of size dim
-	// this will be used to determined time step size dt
+	/// return maximum mesh level of current active elements in each dimension, a vector of size dim
+	/// this will be used to determined time step size dt in each time step
 	std::vector<int> max_mesh_level_vec() const;
 
-	// return maximum mesh level of current active elements for all dimensions
+	/// return maximum mesh level of current active elements for all dimensions
 	int max_mesh_level() const;
 
-	// return maximum mesh level we set initially
+	/// return maximum mesh level we set initially
 	int nmax_level() const { return NMAX; };
 
 	// ------------------------------------------------------------------------
-	// initialization
+	// pointers to elements when computing DG operator
 	// ------------------------------------------------------------------------
-	// update all coefficients, given a function of separable form f(x1,x2,...,xdim) = g_1(x1) * g_2(x2) * ... * g_dim(xdim)
-	// input is a functional: (x, d) -> g_d(x)
-	virtual void init_separable_scalar(std::function<double(double, int)> scalar_func);
-	// overload for systems of equations, input func should have the same size with num of unknown variable (or equations)
-	//virtual void init_separable_system(sd::vector<std::function<double(double, int)>> vector_func);
-
-	// given a initial function, which is summation of separable functions
-	// size of sum_func is num of separable functions
-	virtual void init_separable_scalar_sum(std::vector<std::function<double(double, int)>> sum_scalar_func);
-	// overload for systems of equations
-	//virtual void init_separable_system_sum(std::vector<std::vector<std::function<double(double, int)>>> sum_vector_func);
-
-	// given a function of non-separable form f=f(x1,x2,...,xdim)
-	// ******************************* TO BE COMPLETED *******************************
-	virtual void init_no_separable_scalar(std::function<double(std::vector<double>)> scalar_func) {};
-	virtual void init_no_separable_system(std::vector<std::function<double(std::vector<double>)>> vector_func) {};
-
-	// ------------------------------------------------------------------------
-	// DG operator
-	// ------------------------------------------------------------------------
-	// find elements with Alpert basis related to volume and flux terms (no adaptive)
+	/// find elements with Alpert basis related to volume and flux terms by loop over all the elements
 	void find_ptr_vol_alpt();
 	void find_ptr_flx_alpt();
 
-	// find elements with interpolation basis related to volume and flux terms (no adaptive)
-	// it is different from Alpert basis since there is no orthogonal property
+	/// find elements with interpolation basis related to volume and flux terms by loop over all the elements.
+	/// This is different from Alpert basis since there is no orthogonal property
 	void find_ptr_vol_intp();
 	void find_ptr_flx_intp();	
 
-	// set all pointers (related to vol and flx terms) to all elements
-	// this function will only be used for debug, exclude bug of incorrect pointers in vol and flx
+	/// set all pointers (related to vol and flx terms) to all elements.
+	/// this function will only be used for debug, exclude bug of incorrect pointers in vol and flx.
 	void set_ptr_to_all_elem();
 
 	// ------------------------------------------------------------------------
@@ -83,9 +62,15 @@ public:
 	std::vector<double> get_error_separable_scalar(std::function<double(double, int)> func, const int gauss_points = 1) const;
 	std::vector<double> get_error_separable_system(std::vector<std::function<double(double, int)>> func, const int gauss_points = 1) const;
 	
-	// calculate L2 error between DG solution and a given function
-	// function is given in separable form in each dimension
-	// split form:  (u-uh)^2 = u^2 + uh^2 - 2*u*uh
+	/**
+	 * @brief calculate the L2 error between numerical solution and a given function using split form:  (u - u_h)^2 = u^2 + u_h^2 - 2 * u * u_h
+	 * 
+	 * @param func 					function is given in separable form in each dimension
+	 * @param l2_norm_exact_soln 	L2 norm of exact solution
+	 * @return double				L2 error
+	 * 
+	 * @note	If the L2 error is less than 1e-6, then the square of this error might be around round-off error. Then sqrt of negative value might happen due to round off error.
+	 */
 	double get_L2_error_split_separable_scalar(std::function<double(double, int)> func, const double l2_norm_exact_soln) const;
 
 	// function is given in summation of several separable function
@@ -95,6 +80,7 @@ public:
 	// function is given in non-separable form in each dimension
 	std::vector<double> get_error_no_separable_scalar(std::function<double(std::vector<double>)> func, const int gauss_points = 1) const;
 	std::vector<double> get_error_no_separable_system(std::vector<std::function<double(std::vector<double>)>> func, const int gauss_points = 1) const;
+	std::vector<double> get_error_no_separable_system_each(std::vector<std::function<double(std::vector<double>)>> func, const int gauss_points, int ind_var) const;
 	std::vector<double> get_error_no_separable_system(std::function<double(std::vector<double>)> func, const int gauss_points, int ind_var) const;
 	std::vector<double> get_error_no_separable_system_omp(std::function<double(std::vector<double>)> func, const int gauss_points, int ind_var) const;
 	// ------------------------------------------------------------------------
@@ -115,7 +101,6 @@ public:
 	std::vector<double> get_error_Her(std::vector< std::vector< std::function<double(std::vector<double>)> > > func, const int gauss_points) const;
 	
 	std::vector<double> get_error_Her(std::function<double(std::vector<double>)> func, const int gauss_points) const;
-	void plot2d() const;
 	
 	// ------------------------------------------------------------------------
 	// output information of dgsolution
@@ -124,98 +109,121 @@ public:
 	// num of interpolation basis
 	// print rhs in screen
 	// ------------------------------------------------------------------------
-	int size_elem() const;
-	int size_basis_alpt() const; 
-	int size_basis_intp() const;
-	int get_dof() const;
+	int size_elem() const;			///< size of dg map
+	int size_basis_alpt() const; 	///< size of dg map * (k+1)^d where k is polynomial degree in Alpert basis
+	int size_basis_intp() const;	///< size of dg map * (m+1)^d where k is polynomial degree in interpolation basis
+	int get_dof() const;			///< dof is defined as size_basis_alpt() * (size of ind_var_vec)
 	void print_rhs() const;
 
-
-	// set all Element::rhs in all elements to be zero
+	// ------------------------------------------------------------------------
+	// copy or set zero to coefficients in all the elements
+	// ------------------------------------------------------------------------
+	/// set Element::rhs in all elements to be zero
 	void set_rhs_zero();
 
-	// set all Element::source in all elements to be zero
+	/// set Element::source in all elements to be zero
 	void set_source_zero();
 
-	// set all Element::ucoe_alpt in all elements to be zero
+	/// set Element::ucoe_alpt in all elements to be zero
 	void set_ucoe_alpt_zero();
 
-	// multiply Element::ucoe_alpt in all elements by a constant
+	/// multiply Element::ucoe_alpt in all elements by a constant
 	void multiply_ucoe_alpt_by_const(const double constant);
 
-	// copy Element::ucoe_alpt to Element::ucoe_alpt_predict
+	/// copy Element::ucoe_alpt to Element::ucoe_alpt_predict
 	void copy_ucoe_to_predict();
 
-	// copy Element::ucoe_alpt_predict to Element::ucoe_alpt
+	/// copy Element::ucoe_alpt_predict to Element::ucoe_alpt
 	void copy_predict_to_ucoe();
 
-	// copy Element::ucoe_ut to Element::ucoe_ut_predict
+	/// copy Element::ucoe_ut to Element::ucoe_ut_predict
 	void copy_ucoe_ut_to_predict();
 
-	// copy Element::ucoe_ut_predict to Element::ucoe_ut
+	/// copy Element::ucoe_ut_predict to Element::ucoe_ut
 	void copy_predict_to_ucoe_ut();
 
-	// copy Element::ucoe_alpt_t_m1 to Element::ucoe_alpt_predict_t_m1
+	///	copy Element::ucoe_alpt_t_m1 to Element::ucoe_alpt_predict_t_m1
 	void copy_ucoe_to_predict_t_m1();
 
-	// copy Element::ucoe_alpt_predict_t_m1 to Element::ucoe_alpt_t_m1
+	/// copy Element::ucoe_alpt_predict_t_m1 to Element::ucoe_alpt_t_m1
 	void copy_predict_to_ucoe_t_m1();
 
-	// copy Element::ucoe_alpt to Element::ucoe_alpt_t_m1
+	/// copy Element::ucoe_alpt to Element::ucoe_alpt_t_m1
 	void copy_ucoe_to_ucoem1();
 
-	// copy Element::ucoe_alpt_t_m1 to Element::ucoe_alpt
+	/// copy Element::ucoe_alpt_t_m1 to Element::ucoe_alpt
 	void copy_ucoem1_to_ucoe();
 
-	// copy Element::ucoe_alpt to Element::ucoe_ut
+	/// copy Element::ucoe_alpt to Element::ucoe_ut
 	void copy_ucoe_to_ucoe_ut();
 
-	// copy Element::ucoe_ut to Element::ucoe_alpt
+	/// copy Element::ucoe_ut to Element::ucoe_alpt
 	void copy_ucoe_ut_to_ucoe();
 
+	/// key member in this class, store all the active elements and its hash key
 	std::unordered_map<int, Element> dg;
 
-	// artificial viscosity elements
+	/// artificial viscosity elements, this will be used in shock capturing when solving conservation laws
 	std::unordered_set<Element*> viscosity_element;
 
-	// return number of elements with non-zero artificial viscosity
+	/// return number of elements with non-zero artificial viscosity
 	int num_artific_visc_elem() const { return viscosity_element.size(); };
 	
-	// key member function of the DGSolution class, calculate value of DG solution at point x
-	// it is vector of size the number of unknown
+	/**
+	 * @brief calculate value of DG solution at a given point
+	 * 
+	 * @param x 					a given point
+	 * @param derivative 			order of derivative in each dimension
+	 * @return std::vector<double> 	vector of size the number of unknown variables
+	 */
 	std::vector<double> val(const std::vector<double> & x, const std::vector<int> & derivative) const;
 	
-	// given a multidimensional function in seperable form
-	// output coefficient of projection in each dimension (size of DIM * num_all_alpert_basis)
+	/**
+	 * @brief	project a function in seperable form in each dim to basis in 1D
+	 * 
+	 * @param func 					a multidimensional function in seperable form
+	 * @return VecMultiD<double> 	a two dimension vector coefficient with size (dim, # all_basis_1D)
+	 * 								coefficient.at(d, order) denote the inner product of order-th basis function with initial function in d-th dim
+	 */
 	VecMultiD<double> seperable_project(std::function<double(double, int)> func) const;
 
 	/**
 	 * @brief update coefficient of source in a element
 	 * 
 	 * @param elem 
-	 * @param coefficient_1D 
-	 * @param index_var 
+	 * @param coefficient_1D 	a two dimension vector coefficient with size (dim, # all_basis_1D)
+	 * 							coefficient.at(d, order) denote the inner product of order-th basis function with initial function in d-th dim
+	 * @param index_var 		index of unknown variable
 	 */
 	void source_elem_separable(Element & elem, const VecMultiD<double> & coefficient_1D, const int index_var = 0);
 
 protected:
 
-	const bool sparse;
-	const int level_init;	
-	const int NMAX;
+	const bool sparse;		///< control sparse grid (true) or full grid (false)
+	const int level_init;	///< initial mesh level
+	const int NMAX;			///< maximum mesh level
 
 	Hash hash;
 	AllBasis<AlptBasis> all_bas;
 	AllBasis<LagrBasis> all_bas_Lag;
 	AllBasis<HermBasis> all_bas_Her;	
 
-	// initialization coefficient of a given element based on coefficient of projection of separable 
+	/**
+	 * @brief initialization coefficient of a given element based on coefficient of projection of separable functions
+	 * 
+	 * @param elem 				given element
+	 * @param coefficient_1D 	size of DIM * (num of all 1D Alpert basis)
+	 * @param index_var 		index of unknown variables
+	 */
 	void init_elem_separable(Element & elem, const VecMultiD<double> & coefficient_1D, const int index_var = 0);
 
-	// update order of all basis function in dg map
-	// this will update Element::order_alpt_basis_in_dg and Element::order_intp_basis_in_dg
-	// it will be used in assemble matrix for DG operator
-	// this function will be called in initialization, refinement and coarsen in class DGAdapt
+	/**
+	 * @brief update order of all basis function in dg map
+	 * 
+	 * 		this will update Element::order_alpt_basis_in_dg and Element::order_intp_basis_in_dg
+	 * 		it will be used in assemble matrix for DG operator
+	 * 		this function will be called in initialization, refinement and coarsen in class DGAdapt
+	 */
 	void update_order_all_basis_in_dgmap();
 
 private:
@@ -226,13 +234,13 @@ private:
 	std::vector<double> val_Her(const std::vector<double> & x) const;
 
 	
-	// elements that have intersection with artificial viscosity elements
+	/// elements that have intersection with artificial viscosity elements
 	std::unordered_set<Element*> viscosity_intersect_element;
 
-	// update viscosity_intersect_element
+	/// update viscosity_intersect_element
 	void update_viscosity_intersect_element();
 
-	// set all Element::fp_intp in all elements to be zero
+	/// set all Element::fp_intp in all elements to be zero
 	void set_fp_intp_zero();
 
 	/**
@@ -254,10 +262,5 @@ private:
 	 * @return double 
 	 */
 	double val_Her(const std::vector<double> & x, const int ii, const int dd) const;
-		
-	// calculate rhs
-	void rhs_vol_intp(const double operator_coeff, const int dim, const VecMultiD<double> & mat_operator, const VecMultiD<double> & mat_mass, const bool is_only_update_new = false);
-
-	void rhs_flx_intp(const double operator_coeff, const int dim, const VecMultiD<double> & mat_operator, const VecMultiD<double> & mat_mass, const bool is_only_update_new = false);			
 };
 

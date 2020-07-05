@@ -386,12 +386,137 @@ void ZKAlpt::assemble_matrix_scalar(const std::vector<double> & eqnCoefficient)
 	// assemble_matrix_alpt(-eqnCoefficient[dim]*dx*dx, 1, oper_matx, "flx");	
 }
 
-void SchrodingerAlpt::assemble_matrix_1D(const double eqnCoefficient)
+void SchrodingerAlpt::assemble_matrix(const double eqnCoefficient)
 {
-	// assemble matrix for u
-	// - \int v * phi_xx
-	assemble_matrix_alpt(-1., 0, oper_matx_alpt_ptr->u_vxx, oper_matx_alpt_ptr->u_v, "vol", 1, 0);
+	const int index_u = 0;
+	const int index_v = 1;
 
+	// conservative flux:
+	// we use alternating flux, i.e. \tilde{u_x} = u_x^+ and \hat{u} = u^-
+	// alpha_1 = 1/2, alpha_2 = -1/2, beta_1 = beta_2 = 0
+
+	// dissipative flux:
+	// alpha_1 = 1/2, alpha_2 = -1/2, beta_1 = 1-i, beta_2 = 1+i
+	// in eqn(4), Chen, Li and Cheng, JSC, 2019
+	for (size_t d = 0; d < dgsolution_ptr->DIM; d++)
+	{
+		// assemble matrix for u
+		// - \int v * phi_xx
+		assemble_matrix_alpt(-eqnCoefficient, d, oper_matx_alpt_ptr->u_vxx, oper_matx_alpt_ptr->u_v, "vol", index_v, index_u);
+
+		// v_x^+ * [phi]
+		assemble_matrix_alpt(eqnCoefficient, d, oper_matx_alpt_ptr->uxrgt_vjp, oper_matx_alpt_ptr->u_v, "flx", index_v, index_u);
+
+		// - v^- * [phi_x]
+		assemble_matrix_alpt(-eqnCoefficient, d, oper_matx_alpt_ptr->ulft_vxjp, oper_matx_alpt_ptr->u_v, "flx", index_v, index_u);
+
+		// assemble matrix for v
+		// \int u * phi_xx
+		assemble_matrix_alpt(eqnCoefficient, d, oper_matx_alpt_ptr->u_vxx, oper_matx_alpt_ptr->u_v, "vol", index_u, index_v);
+
+		// - u_x^+ * [phi]
+		assemble_matrix_alpt(-eqnCoefficient, d, oper_matx_alpt_ptr->uxrgt_vjp, oper_matx_alpt_ptr->u_v, "flx", index_u, index_v);
+
+		// u_x^- * [phi_x]
+		assemble_matrix_alpt(eqnCoefficient, d, oper_matx_alpt_ptr->ulft_vxjp, oper_matx_alpt_ptr->u_v, "flx", index_u, index_v);
+	}	
+}
+
+void SchrodingerAlpt::assemble_matrix_couple(const double eqnCoefficient)
+{
+	assert(dgsolution_ptr->VEC_NUM <= 4);
+
+	int num = dgsolution_ptr->VEC_NUM / 2;
+
+	// i=0: variable 1
+	// i=1: variable 2
+	for (int i = 0; i < num; i++)
+	{
+		int index_u = 0;
+		int index_v = 1;
+
+		if (i == 1)
+		{
+			index_u = 2;
+			index_v = 3;
+		}
+		
+
+		for (size_t d = 0; d < dgsolution_ptr->DIM; d++)
+		{
+			// assemble matrix for u
+			// - \int v * phi_xx
+			assemble_matrix_alpt(-eqnCoefficient, d, oper_matx_alpt_ptr->u_vxx, oper_matx_alpt_ptr->u_v, "vol", index_v, index_u);
+
+			// v_x^+ * [phi]
+			assemble_matrix_alpt(eqnCoefficient, d, oper_matx_alpt_ptr->uxrgt_vjp, oper_matx_alpt_ptr->u_v, "flx", index_v, index_u);
+
+			// - v^- * [phi_x]
+			assemble_matrix_alpt(-eqnCoefficient, d, oper_matx_alpt_ptr->ulft_vxjp, oper_matx_alpt_ptr->u_v, "flx", index_v, index_u);
+
+			// assemble matrix for v
+			// \int u * phi_xx
+			assemble_matrix_alpt(eqnCoefficient, d, oper_matx_alpt_ptr->u_vxx, oper_matx_alpt_ptr->u_v, "vol", index_u, index_v);
+
+			// - u_x^+ * [phi]
+			assemble_matrix_alpt(-eqnCoefficient, d, oper_matx_alpt_ptr->uxrgt_vjp, oper_matx_alpt_ptr->u_v, "flx", index_u, index_v);
+
+			// u_x^- * [phi_x]
+			assemble_matrix_alpt(eqnCoefficient, d, oper_matx_alpt_ptr->ulft_vxjp, oper_matx_alpt_ptr->u_v, "flx", index_u, index_v);
+		}
+
+	}	
+}
+
+
+void HyperbolicAlpt::assemble_matrix_schrodinger(const double eqnCoefficient)
+{
+	assert(dgsolution_ptr->VEC_NUM <= 4);
+
+	for (size_t d = 0; d < dgsolution_ptr->DIM; d++)
+	{
+		// 0: real part of variable 1
+		// 1: imaginary part of variable 1
+		// 2: real part of variable 2
+		// 3: imaginary part of variable 2
+		if (eqnCoefficient >= 0.0)
+		{
+			for (int i = 0; i < dgsolution_ptr->VEC_NUM; i++) 
+			{
+				if (i<=1)
+				{
+					assemble_matrix_alpt(eqnCoefficient, d, oper_matx_alpt_ptr->u_vx, oper_matx_alpt_ptr->u_v, "vol", i, i);
+
+					assemble_matrix_alpt(eqnCoefficient, d, oper_matx_alpt_ptr->ulft_vjp, oper_matx_alpt_ptr->u_v, "flx", i, i);
+				}
+				else
+				{
+					assemble_matrix_alpt(-eqnCoefficient, d, oper_matx_alpt_ptr->u_vx, oper_matx_alpt_ptr->u_v, "vol", i, i);
+
+					assemble_matrix_alpt(-eqnCoefficient, d, oper_matx_alpt_ptr->urgt_vjp, oper_matx_alpt_ptr->u_v, "flx", i, i);
+				}
+			}
+		}
+		else
+		{
+			for (int i = 0; i < dgsolution_ptr->VEC_NUM; i++) 
+			{
+				if (i<=1)
+				{
+					assemble_matrix_alpt(eqnCoefficient, d, oper_matx_alpt_ptr->u_vx, oper_matx_alpt_ptr->u_v, "vol", i, i);
+
+					assemble_matrix_alpt(eqnCoefficient, d, oper_matx_alpt_ptr->urgt_vjp, oper_matx_alpt_ptr->u_v, "flx", i, i);
+				}
+				else
+				{
+					assemble_matrix_alpt(-eqnCoefficient, d, oper_matx_alpt_ptr->u_vx, oper_matx_alpt_ptr->u_v, "vol", i, i);
+
+					assemble_matrix_alpt(-eqnCoefficient, d, oper_matx_alpt_ptr->ulft_vjp, oper_matx_alpt_ptr->u_v, "flx", i, i);
+				}
+			}
+		}
+		
+	}	
 }
 
 void HyperbolicAlpt::assemble_matrix(const VecMultiD<double> & volCoefficient, const VecMultiD<double> & fluxLeftCoefficient, const VecMultiD<double> & fluxRightCoefficient)
@@ -406,6 +531,7 @@ void HyperbolicAlpt::assemble_matrix(const VecMultiD<double> & volCoefficient, c
 				assemble_matrix_alpt(volCoefficient.at(index), dim, oper_matx_alpt_ptr->u_vx, oper_matx_alpt_ptr->u_v, "vol", index_solu_variable, index_test_variable);
 				assemble_matrix_alpt(fluxLeftCoefficient.at(index), dim, oper_matx_alpt_ptr->ulft_vjp, oper_matx_alpt_ptr->u_v, "flx", index_solu_variable, index_test_variable);
 				assemble_matrix_alpt(fluxRightCoefficient.at(index), dim, oper_matx_alpt_ptr->ulft_vjp, oper_matx_alpt_ptr->u_v, "flx", index_solu_variable, index_test_variable);
+				std::cout << "check for fluxRight in function HyperbolicAlpt::assemble_matrix" << std::endl; // check the above line, ulft_vjp is right?
 			}
 		}
 	}
@@ -456,8 +582,8 @@ void HyperbolicAlpt::assemble_matrix_flx_scalar(const int dim, const int sign, c
 	}
 }
 
-HJOutflowAlpt::HJOutflowAlpt(DGSolution & dgsolution, OperatorMatrix1D<AlptBasis, AlptBasis> & oper_matx_alpt_period, OperatorMatrix1D<AlptBasis, AlptBasis> & oper_matx_alpt_inside):
-	HyperbolicAlpt(dgsolution, oper_matx_alpt_period), oper_matx_alpt_inside_ptr(&oper_matx_alpt_inside), mat1D_flx_lft(2, oper_matx_alpt_ptr->size), mat1D_flx_rgt(2, oper_matx_alpt_ptr->size)
+HJOutflowAlpt::HJOutflowAlpt(DGSolution & dgsolution, OperatorMatrix1D<AlptBasis, AlptBasis> & oper_matx_alpt_period, OperatorMatrix1D<AlptBasis, AlptBasis> & oper_matx_alpt_inside, const int n):
+	HyperbolicAlpt(dgsolution, oper_matx_alpt_period, n), oper_matx_alpt_inside_ptr(&oper_matx_alpt_inside), mat1D_flx_lft(2, oper_matx_alpt_ptr->size), mat1D_flx_rgt(2, oper_matx_alpt_ptr->size)
 {
 	assert(oper_matx_alpt_ptr->boundary == "period");
 	assert(oper_matx_alpt_inside_ptr->boundary == "inside");

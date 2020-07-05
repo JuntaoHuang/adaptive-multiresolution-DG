@@ -23,7 +23,7 @@ public:
 
 private:
 
-    const static int Nmax = 40;
+    const static int Nmax = 100;
     
     static std::vector<std::vector<double>> bicoef_t;
     

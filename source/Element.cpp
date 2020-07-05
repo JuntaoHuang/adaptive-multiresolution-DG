@@ -11,14 +11,6 @@ Element::Element(const std::vector<int> & level_, const std::vector<int> & suppt
 	level(level_), 
 	suppt(suppt_),
 	hash_key(0),
-	order_local_alpt(),
-	order_local_intp(),
-	order_global_alpt(),
-	order_global_intp(),
-	ucoe_alpt(),
-	ucoe_alpt_predict(),
-	ucoe_tn(),
-	rhs(),
 	num_total_chd(0), 
 	num_total_par(0),
 	new_add(true)
@@ -27,10 +19,10 @@ Element::Element(const std::vector<int> & level_, const std::vector<int> & suppt
 
 	hash_key = hash.hash_key(level, suppt);
 
+	// initialize variables in interpolation of f(u)
 	fucoe_intp.resize(VEC_NUM);
 	fucoe_intp_inter.resize(VEC_NUM);
 	fp_intp.resize(VEC_NUM);
-
 
 	for (int i = 0; i < VEC_NUM; i++)
 	{
@@ -44,43 +36,31 @@ Element::Element(const std::vector<int> & level_, const std::vector<int> & suppt
 			VecMultiD<std::vector<double> > b = is_intp[i][d] ? VecMultiD<std::vector<double>> (DIM, PMAX_intp+1) : VecMultiD<std::vector<double>>();
 			if (is_intp[i][d])
 			{
-				auto index_iterator = b.get_index_iterator();
-
-				for (auto it : index_iterator)
-				{
-					(b.at(it)).resize(DIM + 1);
-				}
+				for (auto it : b.get_index_iterator()) { (b.at(it)).resize(DIM + 1); }
 			}
-			
 			fucoe_intp_inter[i].push_back(b);
-		}		
+		}
 	}
 
-
+	// initialize variables in interpolation of u
 	for (int i = 0; i < VEC_NUM; i++)
 	{
 		VecMultiD<double> a(DIM, PMAX_intp+1);
-
 		ucoe_intp.push_back(a);
-
 		up_intp.push_back(a);
 	}
 
-
 	VecMultiD<std::vector<double> > b(DIM, PMAX_intp+1);
-	auto index_iterator = b.get_index_iterator();
-	for (auto it : index_iterator)
+	for (auto it : b.get_index_iterator())
 	{
 		( b.at(it) ).resize(DIM + 1); 
 	}
-
 	std::vector<VecMultiD<std::vector<double> > > c(VEC_NUM, b);
-
 	ucoe_intp_inter = c;
 
-
-	VecMultiD<double> scalar_init(DIM, PMAX_alpt+1);
-	std::vector<VecMultiD<double>> vec_init(VEC_NUM, scalar_init);
+	// initialize coefficients of Alpert basis functions
+	VecMultiD<double> scalar_init_alpt(DIM, PMAX_alpt+1);
+	std::vector<VecMultiD<double>> vec_init(VEC_NUM, scalar_init_alpt);
 	ucoe_alpt = vec_init;
 	ucoe_alpt_t_m1 = vec_init;
 	ucoe_alpt_predict = vec_init;
@@ -89,10 +69,9 @@ Element::Element(const std::vector<int> & level_, const std::vector<int> & suppt
 	ucoe_ut = vec_init;
 	ucoe_ut_predict = vec_init;
 	rhs = vec_init;
-
-	ucoe_trans_from = ucoe_alpt;
-	ucoe_trans_to = ucoe_alpt;
-	source = ucoe_alpt;
+	ucoe_trans_from = vec_init;
+	ucoe_trans_to = vec_init;
+	source = vec_init;
 
 	{
 		VecMultiD<int> order_int(DIM, PMAX_alpt+1);
@@ -106,7 +85,7 @@ Element::Element(const std::vector<int> & level_, const std::vector<int> & suppt
 		order_intp_basis_in_dg = order_vec_int;
 	}
 
-	order_local_alpt = ucoe_alpt[0].get_index_iterator();	
+	order_local_alpt = scalar_init_alpt.get_index_iterator();	
 	for (auto const & order_local : order_local_alpt)
 	{
 		std::vector<int> order_global(DIM);
@@ -117,7 +96,7 @@ Element::Element(const std::vector<int> & level_, const std::vector<int> & suppt
 		order_global_alpt.push_back(order_global);
 	}
 
-	order_local_intp = fucoe_intp[0][0].get_index_iterator();
+	order_local_intp = VecMultiD<std::vector<double>>(DIM, PMAX_intp+1).get_index_iterator();
 	for (auto const & order_local : order_local_intp)
 	{
 		std::vector<int> order_global(DIM);
@@ -137,16 +116,6 @@ Element::Element(const std::vector<int> & level_, const std::vector<int> & suppt
 		dis_point.push_back(all_bas.at(level[d], suppt[d], 0).dis_point);
 		supp_interv.push_back(all_bas.at(level[d], suppt[d], 0).supp_interv);
 	}
-}
-
-int Element::size_alpt() const
-{
-	return pow_int(PMAX_alpt+1, DIM);
-}
-
-int Element::size_intp() const
-{
-	return pow_int(PMAX_intp+1, DIM);
 }
 
 std::vector<double> Element::val(const std::vector<double> & x, const AllBasis<AlptBasis> & all_bas, const std::vector<int> & derivative) const
@@ -354,12 +323,6 @@ bool Element::is_flx_intp(const Element & elem, const int dim) const
 	return true;
 }
 
-bool Element::is_same_elem_1D(const Element & elem, const int dim) const
-{
-	return ( (level[dim]==elem.level[dim]) && (suppt[dim]==elem.suppt[dim]) );
-}
-
-// return true if two intervals intersect or adjacent
 bool Element::is_interval_intersect_adjacent(const std::vector<double> & interval_u, const std::vector<double> & interval_v)
 {
 	assert(interval_u.size() == 2 && interval_v.size() == 2);
@@ -403,7 +366,6 @@ bool Element::is_pt_in_interval(const double pt, const std::vector<double> & int
 	return true;
 }
 
-// return true if two intervals intersect
 bool Element::is_interval_intersect(const std::vector<double> & interval_u, const std::vector<double> & interval_v)
 {
 	assert(interval_u.size() == 2 && interval_v.size() == 2);

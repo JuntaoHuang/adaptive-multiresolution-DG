@@ -117,7 +117,7 @@ double Basis::product_volume_interv(const Basis & v, const Basis & w_interv, con
 
 	return gauss_quad_1D.GL_1D(f, xl, xmid, gauss_quad_num) + gauss_quad_1D.GL_1D(f, xmid, xr, gauss_quad_num);
 }
-
+// should be modified for outflow
 double Basis::product_edge_dis_v(const Basis & v, const int sign_limit_u, const int sign_limit_v, const int derivative_u, const int derivative_v, const std::string & boundary_type) const
 {
 	double prod_edge = 0.;

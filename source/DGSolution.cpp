@@ -19,16 +19,16 @@ DGSolution::DGSolution(const bool sparse_, const int level_init_, const int NMAX
 	const std::vector<int> narray_max(DIM, level_init + 1); // 
 	IterativeNestedLoop(narray, DIM, narray_max); // generate a full-grid mesh level index; avoid loop of the dimension
 
-	
-
-
 	for (auto const & lev_n : narray) 
 	{
 		// loop over all mesh level array of size dim
 
 		// case 1: standard sparse grid, only account for basis with sum of index n <= NMAX 
-		if (sparse && (std::accumulate(lev_n.begin(), lev_n.end(), 0) > level_init))  continue;
-
+		if (sparse == 1 && (std::accumulate(lev_n.begin(), lev_n.end(), 0) > level_init))  continue;
+		
+		// case 3: standard sparse grid, only account for basis with sum of index n <= NMAX + DIM - 1 
+		//if (sparse == 2 && (std::accumulate(lev_n.begin(), lev_n.end(), 0) > level_init + DIM - 1))	continue;
+		
 		// case 2： full grid, generate index j: 0, 1, ..., 2^(n-1)-1, for n >= 2. Otherwise j=0 for n=0,1
 		std::vector<int> jarray_max;
 		for (auto const & n : lev_n)
@@ -56,55 +56,6 @@ DGSolution::DGSolution(const bool sparse_, const int level_init_, const int NMAX
 	update_order_all_basis_in_dgmap();
 }
 
-void DGSolution::init_separable_scalar(std::function<double(double, int)> scalar_func)
-{
-	// step 1: project function in each dim to basis in 1D
-	// coeff is a two dim vector with size (dim, # all_basis_1D)
-	// coeff.at(d, order) denote the inner product of order-th basis function with initial function in d-th dim
-	const VecMultiD<double> coeff = seperable_project(scalar_func);
-
-	// step 2: update coefficient in each element
-	// loop over each element
-	for (auto &iter : dg)
-	{
-		init_elem_separable(iter.second, coeff);
-	}
-}
-
-//void DGSolution::init_separable_system(std::vector<std::function<double(double, int)>> vector_func)
-//{
-//	assert(vector_func.size()==VEC_NUM);
-//
-//	for (size_t num_var = 0; num_var < VEC_NUM; num_var++)
-//	{
-//		// step 1: project function in each dim to basis in 1D
-//		const VecMultiD<double> coeff = seperable_project(vector_func[num_var]);
-//		
-//		// step 2: update coefficient in each element
-//		// loop over each element
-//		for (auto &iter : dg)
-//		{
-//			init_elem_separable(iter.second, coeff, num_var);
-//		}		
-//	}	
-//}
-//
-void DGSolution::init_separable_scalar_sum(std::vector<std::function<double(double, int)>> sum_scalar_func)
-{	
-	for (auto & scalar_func : sum_scalar_func)
-	{
-		init_separable_scalar(scalar_func);
-	}
-}
-//
-//void DGSolution::init_separable_system_sum(std::vector<std::vector<std::function<double(double, int)>>> sum_vector_func)
-//{
-//	for (auto & vector_func : sum_vector_func)
-//	{
-//		init_separable_system(vector_func);
-//	}
-//}
-//
 VecMultiD<double> DGSolution::seperable_project(std::function<double(double, int)> func) const
 {
 	const std::vector<int> size_coeff{DIM, all_bas.size()};
@@ -177,7 +128,7 @@ double DGSolution::get_L2_error_split_separable_scalar(std::function<double(doub
 	// Add integral term of u^2
 	double err2 = l2_norm_exact_soln * l2_norm_exact_soln;
 
-	// Add integral term of u_h^2 and 2*u*u_h
+	// Add integral term of u_h^2 and 2 * u * u_h
 
 	// project function in each dim to basis in 1D
 	// coeff is a two dim vector with size (dim, # all_basis_1D)
@@ -305,11 +256,20 @@ std::vector<double> DGSolution::get_error_no_separable_system(std::vector<std::f
 			return std::pow(err, 0.5);
 		};
 
+	const int max_mesh_quad = std::max(this->max_mesh_level(), 0);
 	Quad quad(DIM);	
-	return quad.norm_multiD(err_fun, NMAX, gauss_points);	
+	return quad.norm_multiD(err_fun, max_mesh_quad, gauss_points);	
 }
 
+std::vector<double> DGSolution::get_error_no_separable_system_each(std::vector<std::function<double(std::vector<double>)>> func, const int gauss_points, int ind_var) const
+{
+	std::vector<int> zero_derivative(DIM, 0);
+	auto err_fun = [&](std::vector<double> x) { return val(x, zero_derivative)[ind_var] - func[ind_var](x); };
 
+	const int max_mesh_quad = std::max(this->max_mesh_level(), 0);
+	Quad quad(DIM);	
+	return quad.norm_multiD(err_fun, max_mesh_quad, gauss_points);	
+}
 
 std::vector<double> DGSolution::get_error_no_separable_system(std::function<double(std::vector<double>)> func, const int gauss_points, int ind_var) const
 {
@@ -752,91 +712,6 @@ void DGSolution::print_rhs() const
 		std::cout << std::endl;
 	}
 }
-//
-//void DGSolution::update_order_all_basis_in_dgmap()
-//{
-//	int order_alpt_basis_in_dgmap = 0;
-//	int order_intp_basis_in_dgmap = 0;
-//	for (auto & iter : dg)
-//	{
-//		for (size_t num_vec = 0; num_vec < VEC_NUM; num_vec++)
-//		{
-//			// update order of alpert basis
-//			for (size_t num_basis = 0; num_basis < iter.second.size_alpt(); num_basis++)
-//			{
-//				const std::vector<int> & order_local_basis = iter.second.order_local_alpt[num_basis];
-//				iter.second.order_alpt_basis_in_dg[num_vec].at(order_local_basis) = order_alpt_basis_in_dgmap;
-//				order_alpt_basis_in_dgmap++;
-//			}
-//
-//			// update order of interpolation basis
-//			for (size_t num_basis = 0; num_basis < iter.second.size_intp(); num_basis++)
-//			{
-//				const std::vector<int> & order_local_basis = iter.second.order_local_intp[num_basis];
-//				iter.second.order_intp_basis_in_dg[num_vec].at(order_local_basis) = order_intp_basis_in_dgmap;
-//				order_intp_basis_in_dgmap++;
-//			}
-//		}
-//	}
-//}
-//
-//
-//void DGSolution::update_order_all_basis_in_dgmap()
-//{
-//	if (prob == "all")
-//	{
-//
-//		int order_alpt_basis_in_dgmap = 0;
-//		int order_intp_basis_in_dgmap = 0;
-//		for (auto & iter : dg)
-//		{
-//			for (size_t num_vec = 0; num_vec < VEC_NUM; num_vec++)
-//			{
-//				// update order of alpert basis
-//				for (size_t num_basis = 0; num_basis < iter.second.size_alpt(); num_basis++)
-//				{
-//					const std::vector<int> & order_local_basis = iter.second.order_local_alpt[num_basis];
-//					iter.second.order_alpt_basis_in_dg[num_vec].at(order_local_basis) = order_alpt_basis_in_dgmap;
-//					order_alpt_basis_in_dgmap++;
-//				}
-//
-//				// update order of interpolation basis
-//				for (size_t num_basis = 0; num_basis < iter.second.size_intp(); num_basis++)
-//				{
-//					const std::vector<int> & order_local_basis = iter.second.order_local_intp[num_basis];
-//					iter.second.order_intp_basis_in_dg[num_vec].at(order_local_basis) = order_intp_basis_in_dgmap;
-//					order_intp_basis_in_dgmap++;
-//				}
-//			}
-//		}
-//	}
-//	else
-//	{
-//		int order_alpt_basis_in_dgmap = 0;
-//		int order_intp_basis_in_dgmap = 0;
-//		for (auto & iter : dg)
-//		{
-//			size_t num_vec = 0;
-//			// update order of alpert basis
-//			for (size_t num_basis = 0; num_basis < iter.second.size_alpt(); num_basis++)
-//			{
-//				const std::vector<int> & order_local_basis = iter.second.order_local_alpt[num_basis];
-//				iter.second.order_alpt_basis_in_dg[num_vec].at(order_local_basis) = order_alpt_basis_in_dgmap;
-//				order_alpt_basis_in_dgmap++;
-//			}
-//
-//			// update order of interpolation basis
-//			for (size_t num_basis = 0; num_basis < iter.second.size_intp(); num_basis++)
-//			{
-//				const std::vector<int> & order_local_basis = iter.second.order_local_intp[num_basis];
-//				iter.second.order_intp_basis_in_dg[num_vec].at(order_local_basis) = order_intp_basis_in_dgmap;
-//				order_intp_basis_in_dgmap++;
-//			}
-//		}
-//	}
-//
-//}
-//
 
 void DGSolution::update_order_all_basis_in_dgmap()
 {

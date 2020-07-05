@@ -490,6 +490,21 @@ private:
     OperatorMatrix1D<LagrBasis, AlptBasis>* const oper_matx_lagr_ptr;
 };
 
+// compute source term (given by Lagrange interpolation basis) using fast algorithm
+class SourceFastLagr:
+    public FastRHS
+{
+public:
+    SourceFastLagr(DGSolution & dgsolution, OperatorMatrix1D<LagrBasis, AlptBasis> & oper_matx_lagr):
+        FastRHS(dgsolution), oper_matx_lagr_ptr(&oper_matx_lagr) {};
+    ~SourceFastLagr() {};
+
+    void rhs_source();
+
+private:
+    OperatorMatrix1D<LagrBasis, AlptBasis>* const oper_matx_lagr_ptr;    
+};
+
 // use Lagrange interpolation basis to approximate k * grad u and k * u
 class DiffusionRHS:
     public FastRHS

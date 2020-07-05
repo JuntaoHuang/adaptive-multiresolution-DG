@@ -37,6 +37,24 @@ void IO::output_num(const std::string & file_name) const
     }
 }
 
+void IO::output_num_schrodinger(const std::string & file_name) const
+{
+    const int dim = dgsolution_ptr->DIM;
+
+    if (dim==1)
+    {
+        output_num_1D_schrodinger(file_name);
+    }
+    else if (dim==2)
+    {
+        output_num_2D_schrodinger(file_name);
+    }
+    else
+    {
+        std::cout << "dimension out of range in IO::output_num_schrodinger()" << std::endl; exit(1);
+    }
+}
+
 void IO::output_num_cut_2D(const std::string & file_name, const double cut_x, const int cut_dim) const
 {
     assert(dgsolution_ptr->DIM==3);
@@ -110,6 +128,21 @@ void IO::output_num_exa(const std::string & file_name, std::function<double(std:
     }
 }
 
+void IO::output_num_exa_err_system(const std::string & file_name, const std::string & file_name_err, 
+                                   std::vector< std::function<double(std::vector<double>)> > exact_solution) const
+{
+    const int dim = dgsolution_ptr->DIM;
+
+    if (dim==1)
+    {
+        output_num_exa_err_system_1D(file_name, file_name_err, exact_solution);
+    }
+    else
+    {
+        std::cout << "dimension out of range in IO::output_num_exa()" << std::endl; exit(1);
+    }
+}
+
 void IO::output_num_1D(const std::string & file_name) const
 {
     assert(dgsolution_ptr->DIM==1);
@@ -120,10 +153,56 @@ void IO::output_num_1D(const std::string & file_name) const
     for (auto const & x : x_1D)
     {   
         std::vector<double> x_vec{x};
-        double u = dgsolution_ptr->val(x_vec, zero_derivative)[0];
-        output << x << "   " << u << std::endl;
+        std::vector<double> u_vec = dgsolution_ptr->val(x_vec, zero_derivative);
+        
+        output << x << "   ";
+        for (auto const & u : u_vec) { output << u << "   "; }        
+        output << std::endl;
     }    
     output.close();
+}
+
+void IO::output_num_1D_schrodinger(const std::string & file_name) const
+{
+    assert(dgsolution_ptr->DIM==1);
+
+    std::ofstream output;
+    output.open(file_name);
+    std::vector<int> zero_derivative(dgsolution_ptr->DIM, 0);
+
+    std::vector<double> max_val(dgsolution_ptr->VEC_NUM/2, 0.0);
+
+    for (auto const & x : x_1D)
+    {   
+        std::vector<double> x_vec{x};
+        std::vector<double> u_vec = dgsolution_ptr->val(x_vec, zero_derivative);
+
+        // compute absolute value of complex u
+        std::vector<double> u_abs_vec(u_vec.size()/2, 0.);
+
+        int i = 0;
+        int j = 0;
+
+        for (auto & u : u_abs_vec) 
+        { 
+            u = sqrt(u_vec[i]*u_vec[i] + u_vec[i+1]*u_vec[i+1]);
+            i += 2; 
+
+            max_val[j] = std::max(u, max_val[j]);
+            j++;
+        } 
+
+        output << x << "   ";
+        for (auto const & u : u_abs_vec) { output << u << "   "; } 
+        // for (auto const & u : u_vec) { output << u << "   "; }        
+        output << std::endl;
+    }    
+    output.close();
+
+    std::cout << "max value is: "; 
+    for (auto  const  u : max_val) { std::cout << u;}
+    std::cout << std::endl;
+    
 }
 
 void IO::output_num_exa_1D(const std::string & file_name, std::function<double(std::vector<double>)> exact_solution) const
@@ -141,6 +220,38 @@ void IO::output_num_exa_1D(const std::string & file_name, std::function<double(s
         output << x << "   " << u_num << "   " << u_exa << std::endl;
     }    
     output.close();
+}
+
+void IO::output_num_exa_err_system_1D(const std::string & file_name, const std::string & file_name_err, 
+                                      std::vector< std::function<double(std::vector<double>)> > exact_solution) const
+{
+    assert(dgsolution_ptr->DIM==1);
+
+    const int num_var = dgsolution_ptr->VEC_NUM;
+
+    std::ofstream output, output_err;
+    output.open(file_name);
+    output_err.open(file_name_err);
+
+    std::vector<int> zero_derivative(dgsolution_ptr->DIM, 0);
+    for (auto const & x : x_1D)
+    {   
+        std::vector<double> x_vec{x};
+        output << x;
+        output_err << x;
+        for (int i = 0; i < num_var; i++)
+        {
+            double u_num = dgsolution_ptr->val(x_vec, zero_derivative)[i];
+            double u_exa = exact_solution[i](x_vec);
+            double u_err = std::abs(u_num - u_exa);
+            output << "   " << u_num << "   " << u_exa;
+            output_err << "   " << u_err;
+        }
+        output << std::endl;
+        output_err << std::endl;
+    }    
+    output.close();
+    output_err.close();
 }
 
 void IO::output_num_2D(const std::string & file_name) const
@@ -161,6 +272,53 @@ void IO::output_num_2D(const std::string & file_name) const
         }                
     }    
     output.close();
+}
+
+void IO::output_num_2D_schrodinger(const std::string & file_name) const
+{
+    assert(dgsolution_ptr->DIM==2);
+
+    std::ofstream output;
+    output.open(file_name);
+    const std::vector<double> y_1D = x_1D;
+    std::vector<int> zero_derivative(dgsolution_ptr->DIM, 0);
+
+    std::vector<double> max_val(dgsolution_ptr->VEC_NUM/2, 0.0);
+
+    for (auto const & x : x_1D)
+    {   
+        for (auto const & y : y_1D)
+        { 
+            std::vector<double> x_vec{x, y};
+            std::vector<double> u_vec = dgsolution_ptr->val(x_vec, zero_derivative);
+
+            // compute absolute value of complex u
+            std::vector<double> u_abs_vec(u_vec.size()/2, 0.);
+
+            int i = 0;
+            int j = 0;
+
+            for (auto & u : u_abs_vec) 
+            { 
+                u = sqrt(u_vec[i]*u_vec[i] + u_vec[i+1]*u_vec[i+1]);
+                i += 2; 
+
+                max_val[j] = std::max(u, max_val[j]);
+                j++;
+            } 
+
+            output << x << "   " << y << "   ";
+            for (auto const & u : u_abs_vec) { output << u << "   "; } 
+            // for (auto const & u : u_vec) { output << u << "   "; }        
+            output << std::endl;
+        }
+    }    
+    output.close();
+
+    std::cout << "max value is: "; 
+    for (auto  const  u : max_val) { std::cout << u;}
+    std::cout << std::endl;
+    
 }
 
 void IO::output_num_2D_controls(const std::string & file_name) const
@@ -201,7 +359,7 @@ void IO::output_num_exa_2D(const std::string & file_name, std::function<double(s
             std::vector<double> x_vec{x, y};
             double u_num = dgsolution_ptr->val(x_vec, zero_derivative)[0];
             double u_exa = exact_solution(x_vec);
-            output << x << "   " << y << "   " << u_num << "   " << u_exa << std::endl;
+            output << x << "   " << y << "   " << u_exa << "   " << u_exa - u_num << std::endl;
         }                
     }    
     output.close();    
@@ -351,6 +509,25 @@ void IO::output_shock_support(const std::string & file_name) const
     output.close();
 }
 
+void IO::write_error_time(const double tn, const std::vector<double> & err, const int init, std::string file_name) const
+{
+    if (init == 0)
+    {
+        std::ofstream output;
+        output.open(file_name);
+        output << tn << " " << err[1] << std::endl;
+        output.close();
+    }
+    else
+    {
+        std::ofstream output;
+        output.open(file_name, std::ofstream::out | std::ofstream::app);
+        output << tn << " " << err[1] << std::endl;
+        output.close();
+    }
+    
+}
+
 void IO::write_error(const int NMAX, const std::vector<double> & err, std::string file_name) const
 {
     std::ofstream output;
@@ -362,4 +539,42 @@ void IO::write_error(const int NMAX, const std::vector<double> & err, std::strin
     }    
     output << std::endl;
     output.close();
+}
+
+void IO::write_error_system(const int NMAX, const std::vector<std::vector<double> > & err, std::string file_name) const
+{
+    const int num_var = err.size();
+
+    std::ofstream output;
+    output.open(file_name);
+    output << NMAX << " "<< num_var << std::endl;
+    for (auto const & err_each : err)
+    {   
+        for (auto const & x : err_each)
+        {
+            output << x << " ";
+        }
+        output << std::endl;
+    }    
+    output << std::endl;
+    output.close();
+}
+
+void IO::write_error_eps_dof(const double eps, const int dof, const std::vector<std::vector<double>> & err, const std::string file_name) const
+{
+    const int num_var = err.size();
+
+    std::ofstream output;
+    output.open(file_name);
+    output << eps << "  " << dof << "  " << num_var << std::endl;
+    for (auto const & err_each : err)
+    {   
+        for (auto const & x : err_each)
+        {
+            output << x << " ";
+        }
+        output << std::endl;
+    }    
+    output << std::endl;
+    output.close();    
 }

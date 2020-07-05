@@ -55,8 +55,8 @@ int Hash::hash_key(const std::array<std::vector<int>,2> & lj)
 int Hash::hash_key(const std::vector<int> & l, const std::vector<int> & j)
 {
     const int d = l.size();
-	assert(d<=4 && "dimension is too large for this hash key function");
-	assert(d<4 && "there might be negetive hash key for dim=4");
+	//assert(d<=4 && "dimension is too large for this hash key function");
+	//assert(d<4 && "there might be negetive hash key for dim=4");
 
 	 int ind1, ind2, ind3;
 	 std::map<int, int>::iterator it;

@@ -92,9 +92,10 @@ public:
 };
 
 /**
- * @brief ultraweak DG for Schrodinger equation in 1D and 2D
- * 
+ * @brief ultraweak DG for Schrodinger equation in
+ * 		1D
  * 			i * u_t + u_xx = 0
+ * 		and 2D
  * 			i * u_t + (u_xx + u_yy) = 0
  */
 class SchrodingerAlpt:
@@ -105,8 +106,9 @@ public:
         BilinearFormAlpt(dgsolution, oper_matx_alpt) {};
 	~SchrodingerAlpt() {};
 
-	// for 1D schrodinger equation 
-	void assemble_matrix_1D(const double eqnCoefficient);
+	void assemble_matrix(const double eqnCoefficient = 1.0);
+
+	void assemble_matrix_couple(const double eqnCoefficient = 1.0);
 };
 
 class HyperbolicAlpt:
@@ -144,13 +146,17 @@ public:
 	// coefficient is a 3D vector
 	// coefficient[i][j][k] denotes coefficient of i-th dim, j-th solution variable, k-th test variable
 	void assemble_matrix(const VecMultiD<double> & volCoefficient, const VecMultiD<double> & fluxLeftCoefficient, const VecMultiD<double> & fluxRightCoefficient);
+
+	// this function assemble matrix for ux terms in schrodinger system
+    // coefficient is a double, which stores coefficient of ux in the equation
+	void assemble_matrix_schrodinger(const double eqnCoefficient = 1.0);
 };
 
 class HJOutflowAlpt:
 	public HyperbolicAlpt
 {
 public:
-	HJOutflowAlpt(DGSolution & dgsolution, OperatorMatrix1D<AlptBasis, AlptBasis> & oper_matx_alpt_period, OperatorMatrix1D<AlptBasis, AlptBasis> & oper_matx_alpt_inside);
+	HJOutflowAlpt(DGSolution & dgsolution, OperatorMatrix1D<AlptBasis, AlptBasis> & oper_matx_alpt_period, OperatorMatrix1D<AlptBasis, AlptBasis> & oper_matx_alpt_inside, int const n = 1);
 	~HJOutflowAlpt() {};
 
 	// flux near the boundary is taken to be u^+ at x=0 and u^- at x=1
@@ -165,7 +171,7 @@ private:
 	VecMultiD<double> mat1D_flx_rgt;
 };
 
-// bilinear form for diffusion operator
+// bilinear form for diffusion operator using interior penalty DG method
 class DiffusionAlpt :
 	public BilinearFormAlpt
 {

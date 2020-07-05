@@ -598,6 +598,18 @@ void HyperbolicDiffFluxLagrRHS::rhs_flx_intp_scalar()
 	rhs_2D(oper_matx_lagr_ptr->u_v, oper_matx_lagr_ptr->ulft_vjp + oper_matx_lagr_ptr->urgt_vjp, "vol", "flx", 1, 0.5);
 }
 
+void SourceFastLagr::rhs_source()
+{
+	std::vector<std::string> operator_type(dgsolution_ptr->DIM, "vol");
+
+	std::vector<const VecMultiD<double>*> oper_matx_1D(dgsolution_ptr->DIM, &(oper_matx_lagr_ptr->u_v));
+
+	for (size_t vec_num = 0; vec_num < dgsolution_ptr->VEC_NUM; vec_num++)
+	{
+		transform_fucoe_to_rhs(oper_matx_1D, operator_type, 0, 1.0, vec_num);
+	}		
+}
+
 FastHermIntp::FastHermIntp(DGSolution & dgsolution, const std::vector<std::vector<double>> & Her_pt_Alpt_1D) :
 	FastInterpolation(dgsolution)
 {

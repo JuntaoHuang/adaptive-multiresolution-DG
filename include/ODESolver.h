@@ -15,7 +15,10 @@ public:
 
     // transfer eigenvector ODESolver::ucoe to Element::ucoe_alpt and set ODESolver::rhs to be zero
     virtual void final() { eigenvec_to_ucoe(); rhs.setZero(); };
-	virtual void final_HJ(HamiltonJacobiLDG & HJ) { HJ.copy_eigenvec_to_phi(ucoe); rhs.setZero(); };
+	template<class T>
+	void final_HJ(HamiltonJacobiLDG<T> & HJ) { HJ.copy_eigenvec_to_phi(ucoe); rhs.setZero(); };
+	//virtual void final_HJ(HamiltonJacobiLDG<HJOutflowAlpt> & HJ) { HJ.copy_eigenvec_to_phi(ucoe); rhs.setZero(); };
+	//virtual void final_HJ(HamiltonJacobiLDG<HyperbolicAlpt> & HJ) { HJ.copy_eigenvec_to_phi(ucoe); rhs.setZero(); };
 
     // add Element::rhs to eigenvec ODESolver::rhs
     void add_rhs_to_eigenvec();
@@ -40,8 +43,8 @@ public:
 	void fucoe_to_eigenvec_HJ(); 
 
     // transfer between eigen vector ODESolver::ucoe and Element::ucoe_alpt in class DGSolution
-    virtual void ucoe_to_eigenvec();
-    virtual void eigenvec_to_ucoe() const;
+    void ucoe_to_eigenvec();
+    void eigenvec_to_ucoe() const;
 
     // transfer between eigen vector ODESolver::rhs and Element::rhs in class DGSolution    
 	void rhs_to_eigenvec();
@@ -59,6 +62,7 @@ public:
     // vector of size the same with num of interpolation basis
     Eigen::VectorXd fucoe;
     
+	/// dof is given by the function get_dof() in class DGSolution, determined by size of ind_var_vec
     const int dof;
 };
 
@@ -87,8 +91,11 @@ public:
 
     // transfer Element::ucoe_alpt to eigenvector ODESolver::ucoe and then copy it to ODESolver::ucoe_tn
     virtual void init() { ucoe_to_eigenvec(); ucoe_tn = ucoe; };
-    virtual void init_HJ(const HamiltonJacobiLDG & HJ) { ucoe = HJ.get_phi_eigenvec(); ucoe_tn = ucoe; };
-	virtual void compute_gradient_HJ(HamiltonJacobiLDG & HJ) { HJ.HJ_apply_operator_to_vector(ucoe); };
+
+	template<class T>
+    void init_HJ(const HamiltonJacobiLDG<T> & HJ) { ucoe = HJ.get_phi_eigenvec(); ucoe_tn = ucoe; };
+	template<class T>
+	void compute_gradient_HJ(HamiltonJacobiLDG<T> & HJ) { HJ.HJ_apply_operator_to_vector(ucoe); };
 	// only works for DG operator keep unchanged
 	virtual void step_rk() = 0;
 
