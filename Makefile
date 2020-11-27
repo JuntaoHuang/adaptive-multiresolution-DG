@@ -1,4 +1,4 @@
-CXX = g++-9 -fopenmp
+CXX = g++-10 -fopenmp
 
 # CPPFLAGS = -std=c++17 -g
 CPPFLAGS = -std=c++17 -O3
