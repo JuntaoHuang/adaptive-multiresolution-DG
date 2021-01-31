@@ -16,10 +16,15 @@ public:
 
 	double get_L2_error_split_adaptive_intp_scalar(DGAdaptIntp & exact_solu) const;
 
+	// return number of refinements
+	int refine_num() const { return refine_num_; };
+
 private:
 	const OperatorMatrix1D<LagrBasis, LagrBasis>*  matrix_Lag_ptr;
 
 	const OperatorMatrix1D<HermBasis, HermBasis>*  matrix_Her_ptr;
+
+	int refine_num_;
 
 	// recursively refine with Lagrange interpolation basis
 	void refine_init_intp_Lag(std::function<double(std::vector<double>, int)> func, LagrInterpolation & interp);

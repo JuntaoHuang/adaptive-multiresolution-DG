@@ -8,20 +8,20 @@ DGAdaptIntp::DGAdaptIntp(const bool sparse_, const int level_init_, const int NM
                          const OperatorMatrix1D<HermBasis, HermBasis> & matrix_Her_):
 DGAdapt(sparse_, level_init_, NMAX_, all_bas_, all_bas_Lag_, all_bas_Her_, hash_, eps_, eta_, is_find_ptr_alpt_, is_find_ptr_intp_), matrix_Lag_ptr(& matrix_Lag_), matrix_Her_ptr(& matrix_Her_)
 {
-    
+    refine_num_ = 0;
 }
 
 
 void DGAdaptIntp::init_adaptive_intp_Lag(std::function<double(std::vector<double>, int)> func, LagrInterpolation & interp)
 {
-    std::cout << "size of dg before initial refine is: " << dg.size() << std::endl;
+    // std::cout << "size of dg before initial refine is: " << dg.size() << std::endl;
 
     interp.init_coe_ada_intp_Lag(func);
 
     //refine recursively
     refine_init_intp_Lag(func, interp);
 
-    std::cout << "size of dg after initial refine is: " <<  dg.size() << std::endl;
+    // std::cout << "size of dg after initial refine is: " <<  dg.size() << std::endl;
 
     update_order_all_basis_in_dgmap();
 }
@@ -113,6 +113,8 @@ void DGAdaptIntp::refine_init_intp_Lag(std::function<double(std::vector<double>,
 
     // set new_add = false for all old elements 
     set_all_new_add_false();
+
+    refine_num_ += 1;
 
     for (auto & iter : leaf)
     {

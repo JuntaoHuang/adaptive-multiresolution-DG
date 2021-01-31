@@ -26,10 +26,10 @@ int main()
 	/* 
 		initialization
 	*/	
-	AlptBasis::PMAX = 2;
+	AlptBasis::PMAX = 1;
 
-	LagrBasis::PMAX = 3;
-	LagrBasis::msh_case = 2;
+	LagrBasis::PMAX = 7;
+	LagrBasis::msh_case = 1;
 
 	HermBasis::PMAX = 3;
 	HermBasis::msh_case = 1;
@@ -124,6 +124,9 @@ int main()
 	std::cout << "interpolation begin" << std::endl;
 
 	dg_solu.init_adaptive_intp_Lag(init_func_multi_dim, interp);
+
+	std::cout << "DoF after refinement: " << dg_solu.size_basis_intp() << std::endl
+			<< "num of refinements: " << dg_solu.refine_num() << std::endl;
 
 	auto stop_evolution_time = std::chrono::high_resolution_clock::now(); 
 	auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop_evolution_time - start_evolution_time);

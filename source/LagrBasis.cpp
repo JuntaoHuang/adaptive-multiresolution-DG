@@ -118,6 +118,11 @@ void LagrBasis::set_interp_msh01()
 			exit(1);
 		}
 	}
+	else if (PMAX == 6) {
+
+		std::cout << "to be completed in function set_intp_msh01 in LagrBasis.cpp for case P=6" << std::endl;
+		exit(1);
+	}	
 	else if (PMAX == 7) {
 
 		if (msh_case == 1) {
