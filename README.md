@@ -1,4 +1,4 @@
-# adaptive multiresolution DG
+# Adaptive Multiresolution DG
 
 This is an adaptive multiresolution discontinuous Galerkin (DG) C++ package for solving partial differential equations in high dimensions.
 
