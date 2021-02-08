@@ -17,8 +17,8 @@ This is an adaptive multiresolution discontinuous Galerkin (DG) C++ package for 
 
 ## Build Requirement:
 
-Complier: GCC 9.3.0
-
+- Complier: GCC 9.3.0
+- Dependency: Eigen
   
 
 ## Run Example:
