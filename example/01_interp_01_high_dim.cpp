@@ -15,28 +15,33 @@
 #include "LinearForm.h"
 #include "ODESolver.h"
 #include "OperatorMatrix1D.h"
+#include "Optparser.h"
 #include "Quad.h"
 #include "subs.h"
 #include "VecMultiD.h"
 #include "FastMultiplyLU.h"
 #include "Timer.h"
 
-int main()
+// example:
+// 
+// ./01_interp_01_high_dim -r 1e-1 -gp 3 -rp 10000000
+// 
+// -r:	error threshold
+// -gp: number of Gauss-Legendre points in each small elements
+// -rp: total number of random points
+int main(int argc, char *argv[])
 {
-	/* 
-		initialization
-	*/	
-	AlptBasis::PMAX = 1;
-
-	LagrBasis::PMAX = 7;
+	LagrBasis::PMAX = 3;
 	LagrBasis::msh_case = 1;
 
 	HermBasis::PMAX = 3;
 	HermBasis::msh_case = 1;
 
+	AlptBasis::PMAX = LagrBasis::PMAX;
+
 	Element::PMAX_alpt = AlptBasis::PMAX;	// max polynomial degree for Alpert's basis functions
 	Element::PMAX_intp = LagrBasis::PMAX;	// max polynomial degree for interpolation basis functions
-	Element::DIM = 4;			// dimension
+	Element::DIM = 2;			// dimension
 	Element::VEC_NUM = 1;		// num of unknown variables in PDEs
 
 	DGSolution::DIM = Element::DIM;
@@ -63,8 +68,26 @@ int main()
 	const bool is_adapt_find_ptr_intp = true;	// variable control if need to adaptively find out pointers related to interpolation basis in DG operators
 
 	// adaptive parameter
-	const double refine_eps = 1e-4;
+	double refine_eps = 1e-2;
 	const double coarsen_eta = -1;
+
+	// number of Gauss points and random points in computing error
+	int num_gauss_pt = 3;
+	int num_random_pt = 10000;
+
+	OptionsParser args(argc, argv);
+	args.AddOption(&NMAX, "-NM", "--max-mesh-level", "Maximum mesh level");
+	args.AddOption(&refine_eps, "-r", "--refine-epsilon", "refine parameter epsilon");
+	args.AddOption(&num_gauss_pt, "-gp", "--gauss-point", "number of Gaussian points");
+	args.AddOption(&num_random_pt, "-rp", "--random-point", "number of random points");
+
+	args.Parse();
+	if (!args.Good())
+	{
+		args.PrintUsage(std::cout);
+		return 1;
+	}
+	args.PrintOptions(std::cout);
 
 	// hash key
 	Hash hash;
@@ -126,11 +149,23 @@ int main()
 	dg_solu.init_adaptive_intp_Lag(init_func_multi_dim, interp);
 
 	std::cout << "DoF after refinement: " << dg_solu.size_basis_intp() << std::endl
-			<< "num of refinements: " << dg_solu.refine_num() << std::endl;
+			<< "num of refinements: " << dg_solu.refine_num() << std::endl
+			<< "max mesh level: " << dg_solu.max_mesh_level() << std::endl;
 
 	auto stop_evolution_time = std::chrono::high_resolution_clock::now(); 
 	auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop_evolution_time - start_evolution_time);
 	std::cout << "elasped time in interpolation: " << duration.count()/1e6 << " seconds"<< std::endl;
+
+	// compute error for Lagrange interpolation	
+	auto init_func_multi_dim_scalar = [&](std::vector<double> x)->double { return init_func_multi_dim(x, 0); };
+
+	std::vector<double> err = dg_solu.get_error_Lag_scalar(init_func_multi_dim_scalar, num_gauss_pt);	
+	std::cout << "L1, L2 and Linf error (computed by Gaussian-Legendre quadrature): " << std::endl 
+			<< err[0] << ", " << err[1] << ", " << err[2] << std::endl;
+	
+	err = dg_solu.get_error_Lag_scalar_random_points(init_func_multi_dim_scalar, num_gauss_pt);
+	std::cout << "L1, L2 and Linf error (computed by random points): " << std::endl
+			<< err[0] << ", " << err[1] << ", " << err[2] << std::endl;
 
 	return 0;
 }

@@ -302,7 +302,59 @@ std::vector<double> DGSolution::get_error_no_separable_system_omp(std::function<
 	return quad.norm_multiD_omp(err_fun, NMAX, gauss_points);
 }
 
+std::vector<double> DGSolution::get_error_Lag_scalar(std::function<double(std::vector<double>)> func, const int gauss_points) const
+{
+	assert(VEC_NUM == 1);
 
+	auto err_fun = [&](std::vector<double> x) ->double
+	{
+		return std::abs(val_Lag(x)[0] - func(x));
+	};
+
+	Quad quad(DIM);
+	const int n = max_mesh_level();
+	std::vector<double> norm = quad.norm_multiD(err_fun, n, gauss_points);
+
+	return norm;
+}
+
+std::vector<double> DGSolution::get_error_Lag_scalar_random_points(std::function<double(std::vector<double>)> func, const int num_points) const
+{
+	assert(VEC_NUM == 1);
+
+	auto err_fun = [&](std::vector<double> x) ->double
+	{
+		return std::abs(val_Lag(x)[0] - func(x));
+	};
+
+	double err_1 = 0.;
+	double err_2 = 0.;
+	double err_inf = 0.;
+
+	// this is copied from https://en.cppreference.com/w/cpp/numeric/random/uniform_real_distribution
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<> dis(0.0, 1.0);
+    for (int n = 0; n < num_points; ++n)
+	{
+		std::vector<double> x(DIM, 0.);
+		for (int d = 0; d < DIM; d++)
+		{ 
+			x[d] = dis(gen);
+		}
+
+		double err = err_fun(x);
+		err_1 += err;
+		err_2 += err * err;
+		err_inf = std::max(err_inf, err);
+    }
+
+	err_1 = err_1 / num_points;
+	err_2 = std::sqrt(err_2 / num_points);
+	
+	std::vector<double> norm{err_1, err_2, err_inf};
+	return norm;
+}
 
 // compute the error for all flux functions
 // std::vector<double> DGSolution::get_error_Lag(std::vector< std::vector< std::function<double(std::vector<double>)> > >func, const int gauss_points) const

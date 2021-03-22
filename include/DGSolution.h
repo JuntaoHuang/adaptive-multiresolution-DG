@@ -90,6 +90,9 @@ public:
 	std::vector<double> get_error_Lag(std::function<double(double, int)> func, const int gauss_points) const;
 	std::vector<double> get_error_Her(std::function<double(double, int)> func, const int gauss_points) const;
 
+	std::vector<double> get_error_Lag_scalar(std::function<double(std::vector<double>)> func, const int gauss_points) const;
+	std::vector<double> get_error_Lag_scalar_random_points(std::function<double(std::vector<double>)> func, const int num_points) const;
+
 	// compute the error for all flux functions (# of flux = Const::VEC_NUM * Const::DIM)
 	std::vector<double> get_error_Lag(std::function<double(std::vector<double>, int, int)>func, const int gauss_points, std::vector< std::vector<bool> > is_intp) const;
 	std::vector<double> get_error_Lag(std::vector< std::vector< std::function<double(std::vector<double>)> > >func, const int gauss_points) const;
