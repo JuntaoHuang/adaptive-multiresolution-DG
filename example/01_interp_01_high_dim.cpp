@@ -24,11 +24,12 @@
 
 // example:
 // 
-// ./01_interp_01_high_dim -r 1e-1 -gp 3 -rp 10000000
+// ./01_interp_01_high_dim -r 1e-1 -gp 3 -rp 10000
 // 
 // -r:	error threshold
-// -gp: number of Gauss-Legendre points in each small elements
+// -gp: number of Gauss-Legendre points in each small elements (optional)
 // -rp: total number of random points
+
 int main(int argc, char *argv[])
 {
 	LagrBasis::PMAX = 3;
@@ -72,7 +73,7 @@ int main(int argc, char *argv[])
 	const double coarsen_eta = -1;
 
 	// number of Gauss points and random points in computing error
-	int num_gauss_pt = 3;
+	int num_gauss_pt = 0;
 	int num_random_pt = 10000;
 
 	OptionsParser args(argc, argv);
@@ -159,13 +160,31 @@ int main(int argc, char *argv[])
 	// compute error for Lagrange interpolation	
 	auto init_func_multi_dim_scalar = [&](std::vector<double> x)->double { return init_func_multi_dim(x, 0); };
 
-	std::vector<double> err = dg_solu.get_error_Lag_scalar(init_func_multi_dim_scalar, num_gauss_pt);	
-	std::cout << "L1, L2 and Linf error (computed by Gaussian-Legendre quadrature): " << std::endl 
+	if (num_gauss_pt > 0) 
+	{
+	    std::vector<double> err = dg_solu.get_error_Lag_scalar(init_func_multi_dim_scalar, num_gauss_pt);	
+	    std::cout << "L1, L2 and Linf error (computed by Gaussian-Legendre quadrature): " << std::endl 
+		    << err[0] << ", " << err[1] << ", " << err[2] << std::endl;
+	}
+
+	for (int i = 0; i < 3; i++)
+	{
+
+	// loop to calculate errors when increasing random points by 10
+	// record running time for error calculation
+	auto start_error_compute_time = std::chrono::high_resolution_clock::now();
+
+	std::vector<double> err = dg_solu.get_error_Lag_scalar_random_points(init_func_multi_dim_scalar, num_random_pt);
+	std::cout << "L1, L2 and Linf error (computed by " << num_random_pt << " random points): " << std::endl
 			<< err[0] << ", " << err[1] << ", " << err[2] << std::endl;
 	
-	err = dg_solu.get_error_Lag_scalar_random_points(init_func_multi_dim_scalar, num_gauss_pt);
-	std::cout << "L1, L2 and Linf error (computed by random points): " << std::endl
-			<< err[0] << ", " << err[1] << ", " << err[2] << std::endl;
+	auto stop_error_compute_time = std::chrono::high_resolution_clock::now(); 
+	auto duration_err = std::chrono::duration_cast<std::chrono::microseconds>(stop_error_compute_time - start_error_compute_time);
+	std::cout << "elasped time in error computation: " << duration_err.count()/1e6 << " seconds"<< std::endl;
+	
+	num_random_pt = num_random_pt * 10;
+	
+	}
 
 	return 0;
 }
