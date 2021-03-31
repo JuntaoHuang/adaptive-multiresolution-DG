@@ -6,12 +6,12 @@ This is an adaptive multiresolution discontinuous Galerkin (DG) C++ package for 
 
 ## Papers
 
-- Adaptive collocation methods: [arxiv](https://arxiv.org/abs/1912.03982)
+- Adaptive collocation methods: [Journal of Computational Physics](https://www.sciencedirect.com/science/article/pii/S0021999120305441?casa_token=Ib2O7Vuzp8MAAAAA:RawDMxMtMpXpk5pjeTQaG8VDYXU6DvckElJQ46v__IkbcV5AA9dOYdnuGOYzZCZrmhUg5Ssq)
 - Solving transport equations: [SIAM Journal on Scientific Computing](https://epubs.siam.org/doi/abs/10.1137/16M1083190)
 - Solving nonlinear conservation laws: [SIAM Journal on Scientific Computing](https://epubs.siam.org/doi/abs/10.1137/19M126565X)
 - Solving wave equations: [Journal of Scientific Computing](https://link.springer.com/article/10.1007%2Fs10915-020-01322-w)
 - Solving Schrodinger equations: [Communications on Applied Mathematics and Computation](https://arxiv.org/abs/2007.01471)
-- Solving Hamilton-Jacobi equations: [arxiv](https://arxiv.org/abs/2006.05250)
+- Solving Hamilton-Jacobi equations: [Journal of Computational Physics](https://www.sciencedirect.com/science/article/pii/S0021999121001893?casa_token=sfPahS9dYUoAAAAA:DyyGlYCXfk-vMLuM1ncw4zWu9_tK2mvsOFWKkAW1psON4IBKNZ4YXedpybM2hd3y7lk3oGkF)
 
 
 
