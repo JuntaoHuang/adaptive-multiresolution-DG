@@ -19,6 +19,17 @@
 #include "subs.h"
 #include "VecMultiD.h"
 
+// this shows sparse (and full) grid for scalar hyperbolic equation with periodic boundary condition
+// there is no adaptivity in this example
+// 
+// example:
+// ./02_hyperbolic_01_scalar_const_coefficient -N 7 -s 1 -tf 0.2
+// 
+// -N: maximum mesh level
+// -s: sparse grid (1) or full grid (0)
+// -tf: final time
+// 
+// You can also change AlptBasis::PMAX to test DG space with different polynomial degree
 int main(int argc, char *argv[])
 {
 	// static variables
@@ -50,8 +61,8 @@ int main(int argc, char *argv[])
 	// constant variable
 	const int DIM = Element::DIM;
 	int NMAX = 4;
-	int N_init = NMAX;
-	const bool sparse = false;
+	int N_init = NMAX;	
+	int is_sparse = 1;
 	const std::string boundary_type = "period";
 	double final_time = 0.1;
 	const double cfl = 0.1;
@@ -68,6 +79,7 @@ int main(int argc, char *argv[])
 
 	OptionsParser args(argc, argv);
 	args.AddOption(&NMAX, "-N", "--max-mesh-level", "Maximum mesh level");
+	args.AddOption(&is_sparse, "-s", "--sparse-grid", "sparse grid (1) or full grid (0)");
 	args.AddOption(&final_time, "-tf", "--final-time", "Final time; start time is 0.");
 	args.Parse();
 	if (!args.Good())
@@ -78,6 +90,7 @@ int main(int argc, char *argv[])
 	args.PrintOptions(std::cout);
 
 	N_init = NMAX;
+	bool sparse = (is_sparse == 1) ? true : false;
 
 	// hash key
 	Hash hash;
