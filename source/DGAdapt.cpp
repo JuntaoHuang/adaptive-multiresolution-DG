@@ -2,8 +2,12 @@
 
 std::vector<int> DGAdapt::indicator_var_adapt;
 
-DGAdapt::DGAdapt(const bool sparse_, const int level_init_, const int NMAX_, AllBasis<AlptBasis> & all_bas_, AllBasis<LagrBasis> & all_bas_Lag_, AllBasis<HermBasis> & all_bas_Her_, Hash & hash_, const double eps_, const double eta_, const bool is_find_ptr_alpt_, const bool is_find_ptr_intp_):
-		DGSolution(sparse_, level_init_, NMAX_, all_bas_, all_bas_Lag_, all_bas_Her_, hash_), eps(eps_), eta(eta_), is_find_ptr_alpt(is_find_ptr_alpt_), is_find_ptr_intp(is_find_ptr_intp_)
+DGAdapt::DGAdapt(const bool sparse_, const int level_init_, const int NMAX_, AllBasis<AlptBasis> & all_bas_, AllBasis<LagrBasis> & all_bas_Lag_, AllBasis<HermBasis> & all_bas_Her_, Hash & hash_, const double eps_, const double eta_, const bool is_find_ptr_alpt_, const bool is_find_ptr_intp_, const bool is_find_ptr_general_):
+		DGSolution(sparse_, level_init_, NMAX_, all_bas_, all_bas_Lag_, all_bas_Her_, hash_), 
+		eps(eps_), eta(eta_), 
+		is_find_ptr_alpt(is_find_ptr_alpt_), 
+		is_find_ptr_intp(is_find_ptr_intp_),
+		is_find_ptr_general(is_find_ptr_general_)
 {
 	assert(indicator_var_adapt.size() != 0);
 
@@ -25,6 +29,11 @@ DGAdapt::DGAdapt(const bool sparse_, const int level_init_, const int NMAX_, All
         find_ptr_vol_intp();
         find_ptr_flx_intp();
     }
+
+	if (is_find_ptr_general)
+	{
+		find_ptr_general();
+	}
 }
 
 
@@ -658,6 +667,18 @@ void DGAdapt::add_elem(Element & elem)
 			}
 		}
 	}
+
+	if (is_find_ptr_general)
+	{
+		for (auto & iter_solu : dg)
+		{
+			if (new_iter->second.is_element_multidim_intersect_adjacent(iter_solu.second))
+			{
+				new_iter->second.ptr_general.insert(&(iter_solu.second));
+				iter_solu.second.ptr_general.insert(&(new_iter->second));
+			}
+		}
+	}
 }
 
 void DGAdapt::del_elem(Element & elem)
@@ -707,6 +728,18 @@ void DGAdapt::del_elem(Element & elem)
 
 				ptr->ptr_flx_intp[d].erase(&elem);
 			}
+		}
+	}
+
+	if (is_find_ptr_general)
+	{
+		for (auto & ptr : elem.ptr_general)
+		{
+			// if pointer points to this element itself, then do not erase it
+			// since we do not want to change elem.ptr_vol_intp in this loop
+			if (ptr == &elem) continue;
+
+			ptr->ptr_general.erase(&elem);
 		}
 	}
 

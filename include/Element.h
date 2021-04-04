@@ -136,12 +136,16 @@ public:
 	// store pointers (which are of size DIM) to all other elements that will contribute to integral of volume and flux term when current element is taken as a test function
 	// e.g. ptr_vol_alpt[i] stores pointers to the elements that contribute to integral of volume in the i-th dimension when using alpert basis
 	// current element has intersection with other element in the i-th dimension and has the same index in other dimensions due to orthogonality
-	// the interpolation basis is different because of no orthogonality. in other dimension, not the same index
+	// the interpolation basis is different because of no orthogonality. In other dimension, the index is not necessarily to be the same.
 	// note that ptr_vol_intp is the same for different dimensions
 	std::vector<std::unordered_set<Element*>> ptr_vol_alpt;
 	std::vector<std::unordered_set<Element*>> ptr_flx_alpt;
 	std::vector<std::unordered_set<Element*>> ptr_vol_intp;
 	std::vector<std::unordered_set<Element*>> ptr_flx_intp;
+
+	// this pointer is the most general one
+	// if element in 1D intersects or adjacent, it will be taken into account
+	std::unordered_set<Element*> ptr_general;
 
 	// return true if current element has interaction with another element in the sense of volume and flux integral
 	// volume integral with both Alpert basis. It depends on dimension, since in other dimensions which are not equal to given dimension, the element has to be the same index because of orthogonal
@@ -152,6 +156,8 @@ public:
 	bool is_flx_alpt(const Element & elem, const int dim) const;
 	// flux integral with interpolation basis.
 	bool is_flx_intp(const Element & elem, const int dim) const;
+
+	bool is_element_multidim_intersect_adjacent(const Element & elem) const;
 
 	// ------------------------------------------------------------------------------------------------------------------------
 	/// return number of all Alpert basis and interpolation basis in this element

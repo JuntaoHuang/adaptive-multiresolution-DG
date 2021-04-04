@@ -323,6 +323,15 @@ bool Element::is_flx_intp(const Element & elem, const int dim) const
 	return true;
 }
 
+bool Element::is_element_multidim_intersect_adjacent(const Element & elem) const
+{
+	for (size_t d = 0; d < DIM; d++)
+	{
+		if (!(is_interval_intersect_adjacent(supp_interv[d], elem.supp_interv[d]))) { return false; }
+	}
+	return true;
+}
+
 bool Element::is_interval_intersect_adjacent(const std::vector<double> & interval_u, const std::vector<double> & interval_v)
 {
 	assert(interval_u.size() == 2 && interval_v.size() == 2);

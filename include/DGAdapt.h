@@ -7,7 +7,7 @@ class DGAdapt :
 	public DGSolution
 {
 public:
-	DGAdapt(const bool sparse_, const int level_init_, const int NMAX_, AllBasis<AlptBasis> & all_bas_, AllBasis<LagrBasis> & all_bas_Lag_, AllBasis<HermBasis> & all_bas_Her_, Hash & hash_, const double eps_, const double eta_, const bool is_find_ptr_alpt_, const bool is_find_ptr_intp_);
+	DGAdapt(const bool sparse_, const int level_init_, const int NMAX_, AllBasis<AlptBasis> & all_bas_, AllBasis<LagrBasis> & all_bas_Lag_, AllBasis<HermBasis> & all_bas_Her_, Hash & hash_, const double eps_, const double eta_, const bool is_find_ptr_alpt_, const bool is_find_ptr_intp_, const bool is_find_ptr_general_ = false);
 	~DGAdapt() {};
 
 	/// adaptive initialization for seperable initial value
@@ -65,6 +65,7 @@ private:
 	
 	const bool is_find_ptr_alpt;
 	const bool is_find_ptr_intp;
+	const bool is_find_ptr_general;
 
 	// check that total num of children and parents in all elements are equal
 	// this function will only be used for debug

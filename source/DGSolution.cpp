@@ -690,6 +690,25 @@ void DGSolution::find_ptr_flx_intp()
 	}
 }
 
+void DGSolution::find_ptr_general()
+{
+	// loop over all test elements
+	for (auto & iter_test : dg)
+	{
+		// clear pointers
+		iter_test.second.ptr_general.clear();
+
+		// loop over all solution elements
+		for (auto & iter_solu : dg)
+		{
+			if (iter_test.second.is_element_multidim_intersect_adjacent(iter_solu.second))
+			{
+				iter_test.second.ptr_general.insert(&(iter_solu.second));
+			}
+		}
+	}
+}
+
 void DGSolution::set_ptr_to_all_elem()
 {
 	// pointers to all elements
@@ -708,6 +727,8 @@ void DGSolution::set_ptr_to_all_elem()
 		iter.second.ptr_flx_alpt.clear();
 		iter.second.ptr_flx_intp.clear();
 
+		iter.second.ptr_general.clear();
+
 		// then put pointers to all elements
 		for (size_t dim = 0; dim < DIM; dim++)
 		{
@@ -716,6 +737,8 @@ void DGSolution::set_ptr_to_all_elem()
 			iter.second.ptr_flx_alpt.push_back(ptr_all_elem);
 			iter.second.ptr_flx_intp.push_back(ptr_all_elem);
 		}
+
+		iter.second.ptr_general = ptr_all_elem;
 	}
 }
 

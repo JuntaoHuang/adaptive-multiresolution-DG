@@ -50,6 +50,8 @@ public:
 	void find_ptr_vol_intp();
 	void find_ptr_flx_intp();	
 
+	void find_ptr_general();
+	
 	/// set all pointers (related to vol and flx terms) to all elements.
 	/// this function will only be used for debug, exclude bug of incorrect pointers in vol and flx.
 	void set_ptr_to_all_elem();

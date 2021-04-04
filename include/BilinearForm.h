@@ -53,6 +53,10 @@ protected:
 	// overload, for PDE operators involving derivative in multiple dimension, e.g., \iint u * v_xyy
 	// this will be applied in class ZKAlpt
 	void assemble_matrix_alpt(const double operatorCoefficient, const int dim, const std::vector<const VecMultiD<double>*> & mat_1D_array, const std::string & integral_type, const int index_solu_variable = 0, const int index_test_variable = 0);
+	
+	// overload, for PDE operators involving multiple terms involving interface
+	// this will be applied in jump terms in ZK equation
+	void assemble_matrix_alpt(const double operatorCoefficient, const std::vector<const VecMultiD<double>*> & mat_1D_array, const int index_solu_variable = 0, const int index_test_variable = 0);
 
 	// overload, it can either take matrix coefficient or vector coefficient (diagonal)
     void assemble_matrix_system_alpt(const std::vector<std::vector<double>> & operatorCoefficient, const int dim, const VecMultiD<double> & mat_operator, const VecMultiD<double> & mat_mass, const std::string integral_type, const double coef = 1.);
@@ -88,7 +92,17 @@ public:
         BilinearFormAlpt(dgsolution, oper_matx_alpt) {};
 	~ZKAlpt() {};
 
-	void assemble_matrix_scalar(const std::vector<double> & eqnCoefficient);
+	// assemble matrix for operator in ZK equation
+	// 
+	// option 0 (default):
+	// 		u_xyy weak formulation by Liu Yong, (k+1) convergence order
+	// 
+	// option 1:
+	// 		u_xyy weak formulation with penalty, (k+1) convergence order
+	// 
+	// option 2:
+	// 		u_xyy weak formulation without penalty, only k convergence order
+	void assemble_matrix_scalar(const std::vector<double> & eqnCoefficient, const int option = 0);
 };
 
 /**

@@ -578,3 +578,18 @@ void IO::write_error_eps_dof(const double eps, const int dof, const std::vector<
     output << std::endl;
     output.close();    
 }
+
+void IO::write_error_eps_dof(const double eps, const int dof, const std::vector<double> & err, const std::string file_name) const
+{
+    const int num_var = 1;
+    
+    std::ofstream output;
+    output.open(file_name);
+    output << eps << "  " << dof << "  " << num_var << std::endl;
+    for (auto const & x : err)
+    {   
+        output << x << " ";
+    }    
+    output << std::endl;
+    output.close();    
+}

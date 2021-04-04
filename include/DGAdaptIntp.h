@@ -8,6 +8,7 @@ class DGAdaptIntp:
 {
 public:
 	DGAdaptIntp(const bool sparse_, const int level_init_, const int NMAX_, AllBasis<AlptBasis> & all_bas_, AllBasis<LagrBasis> & all_bas_Lag_, AllBasis<HermBasis> & all_bas_Her_, Hash & hash_, const double eps_, const double eta_, const bool is_find_ptr_alpt_, const bool is_find_ptr_intp_, const OperatorMatrix1D<LagrBasis, LagrBasis> & matrix_Lag_, const OperatorMatrix1D<HermBasis, HermBasis> & matrix_Her_);
+	DGAdaptIntp(const bool sparse_, const int level_init_, const int NMAX_, AllBasis<AlptBasis> & all_bas_, AllBasis<LagrBasis> & all_bas_Lag_, AllBasis<HermBasis> & all_bas_Her_, Hash & hash_, const double eps_, const double eta_, const bool is_find_ptr_alpt_, const bool is_find_ptr_intp_, const bool is_find_ptr_general_, const OperatorMatrix1D<LagrBasis, LagrBasis> & matrix_Lag_, const OperatorMatrix1D<HermBasis, HermBasis> & matrix_Her_);	
 	~DGAdaptIntp() {};
 
 	// adaptive Lagrange interpolation for a given function

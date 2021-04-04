@@ -59,6 +59,8 @@ public:
 
     // err is a vector of size: VEC_NUM * 3, denote L1, L2, Linf error for each unknown variable
     void write_error_eps_dof(const double eps, const int dof, const std::vector<std::vector<double>> & err, const std::string file_name) const;
+    // overload for scalar case
+    void write_error_eps_dof(const double eps, const int dof, const std::vector<double> & err, const std::string file_name) const;
 
     // output flux function of collection of all Lagrange basis (with coefficients fucoe_intp)
     // this function is only used for debug

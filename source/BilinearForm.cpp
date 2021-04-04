@@ -144,6 +144,64 @@ void BilinearFormAlpt::assemble_matrix_alpt(const double operatorCoefficient, co
 	mat += matrix_local;
 }
 
+void BilinearFormAlpt::assemble_matrix_alpt(const double operatorCoefficient, const std::vector<const VecMultiD<double>*> & mat_1D_array, const int index_solu_variable, const int index_test_variable)
+{
+	assert(mat_1D_array.size() == dgsolution_ptr->DIM);
+
+	// first build a list of triplets, and then convert it to a SparseMatrix
+	typedef Eigen::Triplet<double> T;
+	std::vector<T> tripletList; // may not be sufficient for high-dimensional problem
+	const int estimation_of_entries = pow(row, 1.5);
+	tripletList.reserve(estimation_of_entries);
+	Eigen::SparseMatrix<double> matrix_local(row, col);
+
+	// loop over all elements for test functions    
+	for (auto & iter_test : dgsolution_ptr->dg)
+	{
+		// loop over all hash key related to this element
+		const std::unordered_set<Element*> & ptr_solu_elem_set = iter_test.second.ptr_general;
+
+		const std::vector<int> & order_local_test_basis = iter_test.second.order_local_alpt[0];
+		for (auto const & ptr_solu_elem : ptr_solu_elem_set)
+		{
+			int row_i = iter_test.second.order_alpt_basis_in_dg[index_test_variable].at(order_local_test_basis);
+			const std::vector<int> & order_local_solu_basis = ptr_solu_elem->order_local_alpt[0];
+			// loop over each test basis function (multi dimension) in test element
+			for (size_t index_test_basis = 0; index_test_basis < iter_test.second.size_alpt(); index_test_basis++)
+			{
+				// local and global order of test basis (multi dimension)
+				//const std::vector<int> & order_local_test_basis = iter_test.second.order_local_alpt[index_test_basis];
+				const std::vector<int> & order_global_test_basis = iter_test.second.order_global_alpt[index_test_basis];
+
+				int col_j = ptr_solu_elem->order_alpt_basis_in_dg[index_solu_variable].at(order_local_solu_basis);
+				// loop over each solution basis function in element
+				for (size_t index_solu_basis = 0; index_solu_basis < ptr_solu_elem->size_alpt(); index_solu_basis++)
+				{
+					// local and global order of solution basis (multi dimension)
+					//const std::vector<int> & order_local_solu_basis = ptr_solu_elem->order_local_alpt[index_solu_basis];
+					const std::vector<int> & order_global_solu_basis = ptr_solu_elem->order_global_alpt[index_solu_basis];
+
+					double mat_ij = operatorCoefficient;
+					for (size_t d = 0; d < dgsolution_ptr->DIM; d++)
+					{
+						mat_ij *= mat_1D_array[d]->at(order_global_solu_basis[d], order_global_test_basis[d]);
+					}
+					if (std::abs(mat_ij)>=Const::ROUND_OFF)
+					{
+						tripletList.push_back(T(row_i, col_j, mat_ij));
+					}
+					col_j++;
+				}
+				row_i++;
+			}
+		}							
+	}	
+
+	matrix_local.setFromTriplets(tripletList.begin(), tripletList.end());
+
+	mat += matrix_local;
+}
+
 void BilinearFormAlpt::assemble_matrix_system_alpt(const std::vector<std::vector<double>> & operatorCoefficient, const int dim, const VecMultiD<double> & mat_operator, const VecMultiD<double> & mat_mass, const std::string integral_type, const double coef)
 {
 	// first build a list of triplets, and then convert it to a SparseMatrix
@@ -333,10 +391,11 @@ void KdvAlpt::assemble_matrix_scalar(const double eqnCoefficient)
 	assemble_matrix_scalar(eqn_array);
 }
 
-void ZKAlpt::assemble_matrix_scalar(const std::vector<double> & eqnCoefficient)
+void ZKAlpt::assemble_matrix_scalar(const std::vector<double> & eqnCoefficient, const int option)
 {
 	assert(dgsolution_ptr->DIM==2);
 	assert(eqnCoefficient.size()==dgsolution_ptr->DIM);
+	assert((option >= 0) && (option <= 2));
 	
 	// operator for u_xxx
 	int dim = 0;
@@ -360,10 +419,13 @@ void ZKAlpt::assemble_matrix_scalar(const std::vector<double> & eqnCoefficient)
 	oper_matx.push_back(&(oper_matx_alpt_ptr->uxrgt_vjp));
 	assemble_matrix_alpt(eqnCoefficient[dim], 1, oper_matx, "flx");
 	
-	// flx integral of \int -[u]/dx/dx * [v] dx
-	// for larger dissipation and thus optimal convergence order
-	const double dx = 1./pow(2, dgsolution_ptr->max_mesh_level());
-	assemble_matrix_alpt(-eqnCoefficient[dim]/dx/dx, dim, oper_matx_alpt_ptr->ujp_vjp, oper_matx_alpt_ptr->u_v, "flx");
+	if (option == 1)
+	{
+		// flx integral of \int -[u]/dx/dx * [v] dx
+		// for larger dissipation and thus optimal convergence order
+		const double dx = 1./pow(2, dgsolution_ptr->max_mesh_level());
+		assemble_matrix_alpt(-eqnCoefficient[dim]/dx/dx, dim, oper_matx_alpt_ptr->ujp_vjp, oper_matx_alpt_ptr->u_v, "flx");
+	}
 
 	// flx integral of - \int u_y+ * [v_y] dy
 	oper_matx.clear();
@@ -377,6 +439,21 @@ void ZKAlpt::assemble_matrix_scalar(const std::vector<double> & eqnCoefficient)
 	oper_matx.push_back(&(oper_matx_alpt_ptr->ulft_vxjp));
 	assemble_matrix_alpt(eqnCoefficient[dim], 1, oper_matx, "flx");
 
+	if (option == 0)
+	{	
+		// jump term [u_y(x, y+)] * [v(x+, y)], in Liu Yong's formulation
+		oper_matx.clear();
+		oper_matx.push_back(&(oper_matx_alpt_ptr->ujp_vrgt));
+		oper_matx.push_back(&(oper_matx_alpt_ptr->uxrgt_vjp));
+		assemble_matrix_alpt(eqnCoefficient[dim], oper_matx);
+
+		// jump term - [u(x+, y)] * [v_y(x, y+)], in Liu Yong's formulation
+		oper_matx.clear();
+		oper_matx.push_back(&(oper_matx_alpt_ptr->urgt_vjp));
+		oper_matx.push_back(&(oper_matx_alpt_ptr->ujp_vxrgt));
+		assemble_matrix_alpt(-eqnCoefficient[dim], oper_matx);
+	}
+	
 	// // flx integral of \int -[u_xy]*dx*dx * [v_xy] dx
 	// // you can choose add or ignore this term
 	// // almost no difference for error and convergence order

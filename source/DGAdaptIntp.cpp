@@ -11,6 +11,16 @@ DGAdapt(sparse_, level_init_, NMAX_, all_bas_, all_bas_Lag_, all_bas_Her_, hash_
     refine_num_ = 0;
 }
 
+DGAdaptIntp::DGAdaptIntp(const bool sparse_, const int level_init_, const int NMAX_, AllBasis<AlptBasis> & all_bas_, AllBasis<LagrBasis> & all_bas_Lag_, AllBasis<HermBasis> & all_bas_Her_, 
+                         Hash & hash_, const double eps_, const double eta_,
+                         const bool is_find_ptr_alpt_, const bool is_find_ptr_intp_, const bool is_find_ptr_general_,
+                         const OperatorMatrix1D<LagrBasis, LagrBasis> & matrix_Lag_,
+                         const OperatorMatrix1D<HermBasis, HermBasis> & matrix_Her_):
+DGAdapt(sparse_, level_init_, NMAX_, all_bas_, all_bas_Lag_, all_bas_Her_, hash_, eps_, eta_, is_find_ptr_alpt_, is_find_ptr_intp_, is_find_ptr_general_), matrix_Lag_ptr(& matrix_Lag_), matrix_Her_ptr(& matrix_Her_)
+{
+    
+}
+
 
 void DGAdaptIntp::init_adaptive_intp_Lag(std::function<double(std::vector<double>, int)> func, LagrInterpolation & interp)
 {
