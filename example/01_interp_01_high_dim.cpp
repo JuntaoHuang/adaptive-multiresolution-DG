@@ -38,7 +38,7 @@ int main(int argc, char *argv[])
 	HermBasis::PMAX = 3;
 	HermBasis::msh_case = 1;
 
-	AlptBasis::PMAX = LagrBasis::PMAX;
+	AlptBasis::PMAX = 1;
 
 	Element::PMAX_alpt = AlptBasis::PMAX;	// max polynomial degree for Alpert's basis functions
 	Element::PMAX_intp = LagrBasis::PMAX;	// max polynomial degree for interpolation basis functions
