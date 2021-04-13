@@ -12,6 +12,7 @@ This is an adaptive multiresolution discontinuous Galerkin (DG) C++ package for 
 - Solving wave equations: [Journal of Scientific Computing](https://link.springer.com/article/10.1007%2Fs10915-020-01322-w)
 - Solving Schrodinger equations: [Communications on Applied Mathematics and Computation](https://arxiv.org/abs/2007.01471)
 - Solving Hamilton-Jacobi equations: [Journal of Computational Physics](https://www.sciencedirect.com/science/article/pii/S0021999121001893?casa_token=sfPahS9dYUoAAAAA:DyyGlYCXfk-vMLuM1ncw4zWu9_tK2mvsOFWKkAW1psON4IBKNZ4YXedpybM2hd3y7lk3oGkF)
+- Solving dispersive wave equations: [arxiv](https://arxiv.org/abs/2104.05523)
 
 
 
