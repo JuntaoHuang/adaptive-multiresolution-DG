@@ -19,7 +19,7 @@
 #include "subs.h"
 #include "VecMultiD.h"
 
-// this shows sparse (and full) grid for scalar hyperbolic equation with periodic boundary condition
+// this example shows sparse (and full) grid for scalar hyperbolic equation with periodic boundary condition
 // there is no adaptivity in this example
 // 
 // example:
@@ -31,7 +31,9 @@
 // 
 // You can also change AlptBasis::PMAX to test DG space with different polynomial degree
 int main(int argc, char *argv[])
-{
+{	
+	// --------------------------------------------------------------------------------------------
+	// --- Part 1: preliminary part	---
 	// static variables
 	AlptBasis::PMAX = 2;
 
@@ -107,25 +109,27 @@ int main(int argc, char *argv[])
 
 	// operator matrix for Alpert basis
 	OperatorMatrix1D<AlptBasis,AlptBasis> oper_matx(all_bas, all_bas, boundary_type);
+	// --- End of Part 1 ---
+	// --------------------------------------------------------------------------------------------
 
-	// initial condition
-	// f(x,y) = exp(sin(2*x)) * exp(cos(2*y))
-	//auto init_func = [=](double x, int d) { return (d==0) ? 
-	//										exp(sin(2.*Const::PI*x))
-	//										: exp(cos(2.*Const::PI*x)); };
-	std::function<double(double, int)> init_func_1 = [](double x, int d) { return (d == 0) ? -0.5 / Const::PI*(cos(2.*Const::PI*x)) : cos(2.*Const::PI*x); };
-	std::function<double(double, int)> init_func_2 = [](double x, int d) { return (d == 0) ? 0.5 / Const::PI*(sin(2.*Const::PI*x)) : sin(2.*Const::PI*x); };
-	std::vector<std::function<double(double, int)>> init_func1{ { init_func_1, init_func_2} };
 
-	std::vector<std::function<double(double, int)>> init_func{ init_func1 };
-	// initialization of DG solution
+
+	// --------------------------------------------------------------------------------------------
+	// --- Part 2: initialization of DG solution ---
 	DGAdapt dg_solu(sparse, N_init, NMAX, all_bas, all_bas_Lag, all_bas_Her, hash, refine_eps, coarsen_eta, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp);
 
-	// project initial function into numerical solution
+	std::function<double(double, int)> init_func_1 = [](double x, int d) { return (d == 0) ? (cos(2.*Const::PI*x)) : cos(2.*Const::PI*x); };
+	std::function<double(double, int)> init_func_2 = [](double x, int d) { return (d == 0) ? -(sin(2.*Const::PI*x)) : sin(2.*Const::PI*x); };
+	std::vector<std::function<double(double, int)>> init_func{ init_func_1, init_func_2 };
 	dg_solu.init_separable_scalar_sum(init_func);
 
-	// ------------------------------
-	// 	This part is for solving constant coefficient for linear equation	
+	// --- End of Part 2 ---
+	// --------------------------------------------------------------------------------------------
+
+
+
+	// --------------------------------------------------------------------------------------------
+	// --- Part 3: time evolution ---
 	const std::vector<double> hyperbolicConst{1.00, 1.00};
 
 	const int max_mesh = dg_solu.max_mesh_level();
@@ -162,32 +166,25 @@ int main(int argc, char *argv[])
 	odesolver.final();
 	
 	std::cout << "--- evolution finished ---" << std::endl;
+	// --- End of Part 3 ---
+	// --------------------------------------------------------------------------------------------
 
-	// calculate error between numerical solution and exact solution
+
+
+	// --------------------------------------------------------------------------------------------
+	// --- Part 4: calculate error between numerical solution and exact solution ---
 	std::cout << "calculating error at final time" << std::endl;
 
-	const int num_gauss_pt = 4;
-	//auto final_func = [&](double x, int d)->double { return init_func(x-hyperbolicConst[d]*final_time, d); };
-	//
-	//std::vector<double> err = dg_solu.get_error_separable_scalar(final_func, num_gauss_pt);
-	//std::cout << "L1, L2 and Linf error at final time: " << err[0] << ", " << err[1] << ", " << err[2] << std::endl;
-	
-	//Quad quad_exact(DIM);
-	//auto final_exact_sol = [&](std::vector<double> x)->double { return final_func(x[0],0)*final_func(x[1],1); };
-	//const double l2_norm_exact = quad_exact.norm_multiD(final_exact_sol, 2, 10)[1];
-	//double err2 = dg_solu.get_L2_error_split_separable_scalar(final_func, l2_norm_exact);
-	//std::cout << "L2 error at final time with split: " << err2 << std::endl;
-
-	//auto final_func1 = [=](std::vector<double> x) {return exp(sin(2.*Const::PI*(x[0]-final_time)))*exp(cos(2.*Const::PI*(x[1]-final_time))); };
-	
-	auto final_func1 = [=](std::vector<double> x) {return  -0.5 / Const::PI*cos(2.*Const::PI*(x[0] + x[1] - 2 * final_time)); };
+	const int num_gauss_pt = 2;
+	auto final_func1 = [=](std::vector<double> x) {return cos(2.*Const::PI*(x[0] + x[1] - 2 * final_time)); };
 	std::vector<double> err3 = dg_solu.get_error_no_separable_scalar(final_func1, num_gauss_pt);
 	std::cout << "L1, L2 and Linf error at final time: " << err3[0] << ", " << err3[1] << ", " << err3[2] << std::endl;
 
 	IO inout(dg_solu);
 	std::string file_name = "error_N" + std::to_string(NMAX) + ".txt";
 	inout.write_error(NMAX, err3, file_name);
-	// ------------------------------
+	// --- End of Part 4 ---
+	// --------------------------------------------------------------------------------------------
 
 	return 0;
 }

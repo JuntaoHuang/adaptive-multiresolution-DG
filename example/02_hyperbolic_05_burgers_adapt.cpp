@@ -491,6 +491,9 @@ int main(int argc, char *argv[])
 
 			std::string file_name = "profile2D_" + std::to_string(curr_time) + ".txt";
 			inout.output_num_exa(file_name, exact_solu);
+			
+			file_name = "center2D_" + std::to_string(curr_time) + ".txt";
+			inout.output_element_center(file_name);
 		}		
 	}
 

@@ -359,7 +359,7 @@ void IO::output_num_exa_2D(const std::string & file_name, std::function<double(s
             std::vector<double> x_vec{x, y};
             double u_num = dgsolution_ptr->val(x_vec, zero_derivative)[0];
             double u_exa = exact_solution(x_vec);
-            output << x << "   " << y << "   " << u_exa << "   " << u_exa - u_num << std::endl;
+            output << x << "   " << y << "   " << u_num << "   " << u_exa << std::endl;
         }                
     }    
     output.close();    

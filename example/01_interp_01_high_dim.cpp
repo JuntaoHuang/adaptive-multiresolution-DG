@@ -22,14 +22,15 @@
 #include "FastMultiplyLU.h"
 #include "Timer.h"
 
-// example:
-// 
-// ./01_interp_01_high_dim -r 1e-1 -gp 3 -rp 10000
-// 
-// -r:	error threshold
-// -gp: number of Gauss-Legendre points in each small elements (optional)
-// -rp: total number of random points
-
+/**
+ * @brief This is an example of using adaptive interpolation
+ * 
+ * ./01_interp_01_high_dim -r 1e-1 -gp 3 -rp 10000
+ * 
+ * -r:	error threshold
+ * -gp: number of Gauss-Legendre points in each small elements (optional)
+ * -rp: total number of random points
+ */
 int main(int argc, char *argv[])
 {
 	LagrBasis::PMAX = 3;

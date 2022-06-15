@@ -24,14 +24,10 @@ DGAdapt(sparse_, level_init_, NMAX_, all_bas_, all_bas_Lag_, all_bas_Her_, hash_
 
 void DGAdaptIntp::init_adaptive_intp_Lag(std::function<double(std::vector<double>, int)> func, LagrInterpolation & interp)
 {
-    // std::cout << "size of dg before initial refine is: " << dg.size() << std::endl;
-
     interp.init_coe_ada_intp_Lag(func);
 
     //refine recursively
     refine_init_intp_Lag(func, interp);
-
-    // std::cout << "size of dg after initial refine is: " <<  dg.size() << std::endl;
 
     update_order_all_basis_in_dgmap();
 }
@@ -55,7 +51,6 @@ double DGAdaptIntp::get_L2_error_split_adaptive_intp_scalar(DGAdaptIntp & exact_
     double err2 = 0.0;
 
     // Add integral term of u^2
-	
     for (auto iter : exact_solu.dg)
 	{
 		std::vector< VecMultiD<double> > & ucoe_alpt = (iter.second).ucoe_alpt;

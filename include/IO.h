@@ -52,6 +52,9 @@ public:
 
     void write_error_time(const double tn, const std::vector<double> & err, const int init, const std::string file_name) const;
 
+    /**
+     * @brief write error (between numerical solution and exact solution) into file
+     */
     void write_error(const int NMAX, const std::vector<double> & err, const std::string file_name) const;
 
     // err is a vector of size: VEC_NUM * 3, denote L1, L2, Linf error for each unknown variable
