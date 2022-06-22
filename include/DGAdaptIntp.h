@@ -2,7 +2,10 @@
 #include "DGAdapt.h"
 #include "Interpolation.h"
 
-// DGAdaptIntp is derived from DGAdapt
+/**
+ * @brief This class is mainly used in the initialization of DG solution by adaptive interpolation
+ * 
+ */
 class DGAdaptIntp:
 	public DGAdapt
 {
@@ -11,9 +14,15 @@ public:
 	DGAdaptIntp(const bool sparse_, const int level_init_, const int NMAX_, AllBasis<AlptBasis> & all_bas_, AllBasis<LagrBasis> & all_bas_Lag_, AllBasis<HermBasis> & all_bas_Her_, Hash & hash_, const double eps_, const double eta_, const bool is_find_ptr_alpt_, const bool is_find_ptr_intp_, const bool is_find_ptr_general_, const OperatorMatrix1D<LagrBasis, LagrBasis> & matrix_Lag_, const OperatorMatrix1D<HermBasis, HermBasis> & matrix_Her_);	
 	~DGAdaptIntp() {};
 
-	// adaptive Lagrange interpolation for a given function
-	// this will update coefficients of interpolation basis, i.e. Element::ucoe_intp in DG solution
-	// this function can be used for 
+	/**
+	 * @brief adaptive Lagrange interpolation for a given function
+	 * this will update coefficients of interpolation basis, i.e. Element::ucoe_intp in DG solution
+	 * this function can be used in the initialization of DG solution
+	 * 
+	 * @param func 
+	 * @param interp 
+	 * @return ** void 
+	 */
 	void init_adaptive_intp_Lag(std::function<double(std::vector<double>, int)> func, LagrInterpolation & interp);
 
 	// adaptive Hermite interpolation for a given function
@@ -24,7 +33,7 @@ public:
 	// err_L2 := \sqrt( \int (u_h - v_h)^2 ) = \sqrt( \int(u_h^2) - \int(2 * u_h * v_h) + \int(v_h^2) )
 	// This is much faster than computing error using Gaussian-Legendre quadrature rule
 	// since we can make use of orthonormality property of DG basis
-	double get_L2_error_split_adaptive_intp_scalar(DGAdaptIntp & exact_solu) const;
+	double get_L2_error_split_adaptive_intp_scalar(DGSolution & exact_solu) const;
 
 	// return number of refinements in adaptive interpolation
 	int refine_num() const { return refine_num_; };

@@ -16,9 +16,22 @@ public:
 	void init_separable_scalar(std::function<double(double, int)> scalar_func);
 	void init_separable_system(std::vector<std::function<double(double, int)>> vector_func);
 	
-	/// adaptive initialization for summation of seperable initial value
-	/// given a initial function, which is summation of separable functions
-	/// size of sum_func is num of separable functions
+	/**
+	 * @brief adaptive initialization a function to be a summation of separable scalar functions, i.e. \n 
+	 * 	f(x1, x2, ..., xdim) = \sum_(i=1)^(num_func) f_i(x1, x2, ..., xdim) \n 
+	 * 	with each f_i to be a function of separable form \n 
+	 *	f_i(x1, x2, ..., xdim) = g_1(x1) * g_2(x2) * ... * g_dim(xdim)
+	 * 
+	 * @param sum_scalar_func function to be projected, int num_separable_func = sum_func.size()
+	 *  
+	 * @note 	If the initial condition is \n
+	 * f(x,y) = sin(2*pi*(x+y)) = sin(2*pi*x) * cos(2*pi*y) + cos(2*pi*x) * sin(2*pi*y) \n 
+	 * then example is \n 
+	 * auto init_func_1 = [](double x, int d) { return (d==0) ? (sin(2*pi*x)) : (cos(2*pi*x)); }; \n
+	 * auto init_func_2 = [](double x, int d) { return (d==0) ? (cos(2*pi*x)) : (sin(2*pi*x)); }; \n 
+	 * std::vector<std::function<double(double, int)>> init_func{init_func_1, init_func_2}; \n 
+	 * dg_solu.init_separable_scalar_sum(init_func);
+	 */
 	void init_separable_scalar_sum(std::vector<std::function<double(double, int)>> sum_scalar_func);
 	void init_separable_system_sum(std::vector<std::vector<std::function<double(double, int)>>> sum_vector_func);
 

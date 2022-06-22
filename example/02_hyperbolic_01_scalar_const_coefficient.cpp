@@ -3,6 +3,7 @@
 #include "Basis.h"
 #include "BilinearForm.h"
 #include "DGAdapt.h"
+#include "DGAdaptIntp.h"
 #include "DGSolution.h"
 #include "Element.h"
 #include "ExactSolution.h"
@@ -29,12 +30,17 @@
 // -s: sparse grid (1) or full grid (0)
 // -tf: final time
 // 
-// You can also change AlptBasis::PMAX to test DG space with different polynomial degree
+// You can also change DIM and AlptBasis::PMAX
+
+std::vector<std::function<double(double, int)>> init_condition(int DIM);
+
 int main(int argc, char *argv[])
 {	
 	// --------------------------------------------------------------------------------------------
 	// --- Part 1: preliminary part	---
 	// static variables
+	const int DIM = 3;
+
 	AlptBasis::PMAX = 2;
 
 	LagrBasis::PMAX = 3;
@@ -45,7 +51,7 @@ int main(int argc, char *argv[])
 
 	Element::PMAX_alpt = AlptBasis::PMAX;	// max polynomial degree for Alpert's basis functions
 	Element::PMAX_intp = HermBasis::PMAX;	// max polynomial degree for interpolation basis functions
-	Element::DIM = 2;			// dimension
+	Element::DIM = DIM;			// dimension
 	Element::VEC_NUM = 1;		// num of unknown variables in PDEs
 
 	DGSolution::DIM = Element::DIM;
@@ -61,14 +67,12 @@ int main(int argc, char *argv[])
 	for (size_t num = 0; num < Element::VEC_NUM; num++) { Element::is_intp[num] = std::vector<bool>(Element::DIM, true); }
 
 	// constant variable
-	const int DIM = Element::DIM;
 	int NMAX = 4;
 	int N_init = NMAX;	
 	int is_sparse = 1;
 	const std::string boundary_type = "period";
 	double final_time = 0.1;
 	const double cfl = 0.1;
-	const int rk_order = 1;	
 	const bool is_adapt_find_ptr_alpt = true;	// variable control if need to adaptively find out pointers related to Alpert basis in DG operators
 	const bool is_adapt_find_ptr_intp = false;	// variable control if need to adaptively find out pointers related to interpolation basis in DG operators
 
@@ -98,13 +102,10 @@ int main(int argc, char *argv[])
 	Hash hash;
 
 	LagrBasis::set_interp_msh01();
-
 	HermBasis::set_interp_msh01();
 
 	AllBasis<LagrBasis> all_bas_Lag(NMAX);
-
 	AllBasis<HermBasis> all_bas_Her(NMAX);
-
 	AllBasis<AlptBasis> all_bas(NMAX);
 
 	// operator matrix for Alpert basis
@@ -114,23 +115,24 @@ int main(int argc, char *argv[])
 
 
 
+
 	// --------------------------------------------------------------------------------------------
 	// --- Part 2: initialization of DG solution ---
 	DGAdapt dg_solu(sparse, N_init, NMAX, all_bas, all_bas_Lag, all_bas_Her, hash, refine_eps, coarsen_eta, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp);
 
-	std::function<double(double, int)> init_func_1 = [](double x, int d) { return (d == 0) ? (cos(2.*Const::PI*x)) : cos(2.*Const::PI*x); };
-	std::function<double(double, int)> init_func_2 = [](double x, int d) { return (d == 0) ? -(sin(2.*Const::PI*x)) : sin(2.*Const::PI*x); };
-	std::vector<std::function<double(double, int)>> init_func{ init_func_1, init_func_2 };
-	dg_solu.init_separable_scalar_sum(init_func);
+	dg_solu.init_separable_scalar_sum(init_condition(DIM));
 
 	// --- End of Part 2 ---
 	// --------------------------------------------------------------------------------------------
 
 
 
+
 	// --------------------------------------------------------------------------------------------
 	// --- Part 3: time evolution ---
-	const std::vector<double> hyperbolicConst{1.00, 1.00};
+	// coefficients in the equation are all 1:
+	// u_t + \sum_(d=1)^DIM u_(x_d) = 0
+	const std::vector<double> hyperbolicConst(DIM, 1.);
 
 	const int max_mesh = dg_solu.max_mesh_level();
 	const double dx = 1./pow(2., max_mesh);
@@ -146,8 +148,7 @@ int main(int argc, char *argv[])
 
 	std::cout << "--- evolution started ---" << std::endl;
 	// record code running time
-	auto start_evolution_time = std::chrono::high_resolution_clock::now();
-
+	Timer record_time;
 	double curr_time = 0;
 	for (size_t num_time_step = 0; num_time_step < total_time_step; num_time_step++)
 	{	
@@ -155,13 +156,14 @@ int main(int argc, char *argv[])
 		curr_time += dt;
 		
 		// record code running time
-		auto stop_evolution_time = std::chrono::high_resolution_clock::now(); 
-		auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop_evolution_time - start_evolution_time);
-		std::cout << "num of time steps: " << num_time_step 
-				<< "; time step: " << dt 
-				<< "; curr time: " << curr_time
-				<< "; running time: " << duration.count()/1e6 << " seconds"
-				<< std::endl;
+		if (num_time_step % 10 == 0)
+		{		
+			std::cout << "num of time steps: " << num_time_step 
+					<< "; time step size: " << dt 
+					<< "; curr time: " << curr_time
+					<< std::endl;
+			record_time.time("elasped time in evolution");
+		}
 	}	
 	odesolver.final();
 	
@@ -171,20 +173,201 @@ int main(int argc, char *argv[])
 
 
 
+
 	// --------------------------------------------------------------------------------------------
 	// --- Part 4: calculate error between numerical solution and exact solution ---
 	std::cout << "calculating error at final time" << std::endl;
+	record_time.reset();
 
-	const int num_gauss_pt = 2;
-	auto final_func1 = [=](std::vector<double> x) {return cos(2.*Const::PI*(x[0] + x[1] - 2 * final_time)); };
-	std::vector<double> err3 = dg_solu.get_error_no_separable_scalar(final_func1, num_gauss_pt);
-	std::cout << "L1, L2 and Linf error at final time: " << err3[0] << ", " << err3[1] << ", " << err3[2] << std::endl;
+	if (DIM <= 2)
+	// for low dimension, d = 1, 2, compute the error using Gaussian quadrature in the each finest element
+	// computational cost increases exponentially w.r.t. dimension
+	{	
+		const int num_gauss_pt = 3;
+		// exact solution at final time: u(x_1, x_2, ..., x_d, t) = cos(2 * PI * ( sum_(d=1)^DIM (x_d) - DIM * t))
+		auto final_func = [=](std::vector<double> x) 
+		{	
+			double sum_x = 0.;
+			for (int d = 0; d < DIM; d++) { sum_x += x[d]; };
+			return cos(2.*Const::PI*(sum_x - DIM * final_time)); 
+		};
+		std::vector<double> err_l1_l2_linf = dg_solu.get_error_no_separable_scalar(final_func, num_gauss_pt);
+		std::cout << "L1, L2 and Linf error at final time: " << err_l1_l2_linf[0] << ", " << err_l1_l2_linf[1] << ", " << err_l1_l2_linf[2] << std::endl;
+	}
+	else
+	// for higher dimension, d >= 3, compute the error using adaptive interpolation
+	{
+		// --- step 1: construct anther DGsolution v_h and use adaptive Lagrange interpolation to approximate the exact solution
+		const double refine_eps_ext = 1e-6;
+		const double coarsen_eta_ext = -1; 
+		OperatorMatrix1D<HermBasis, HermBasis> oper_matx_herm_herm(all_bas_Her, all_bas_Her, boundary_type);
+		OperatorMatrix1D<LagrBasis, LagrBasis> oper_matx_lagr_lagr(all_bas_Lag, all_bas_Lag, boundary_type);
+		
+		DGAdaptIntp dg_solu_ext(sparse, N_init, NMAX, all_bas, all_bas_Lag, all_bas_Her, hash, refine_eps_ext, coarsen_eta_ext, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp, oper_matx_lagr_lagr, oper_matx_herm_herm);
+		LagrInterpolation interp_ext(dg_solu_ext);
 
-	IO inout(dg_solu);
-	std::string file_name = "error_N" + std::to_string(NMAX) + ".txt";
-	inout.write_error(NMAX, err3, file_name);
+		auto final_func = [=](std::vector<double> x, int i) 
+		{	
+			double sum_x = 0.;
+			for (int d = 0; d < DIM; d++) { sum_x += x[d]; };
+			return cos(2.*Const::PI*(sum_x - DIM * final_time)); 
+		};
+		dg_solu_ext.init_adaptive_intp_Lag(final_func, interp_ext);
+
+		// --- step 2: transformation coefficient of Lagrange basis to Alpert basis
+		OperatorMatrix1D<LagrBasis, AlptBasis> oper_matx_lagr_alpt(all_bas_Lag, all_bas, boundary_type);;
+		FastLagrInit fastLagr_init_ext(dg_solu_ext, oper_matx_lagr_alpt);
+		fastLagr_init_ext.eval_ucoe_Alpt_Lagr();
+
+		// --- step 3: compute L2 error between u_h (numerical solution) and v_h (interpolation to exact solution)
+		double err_l2 = dg_solu_ext.get_L2_error_split_adaptive_intp_scalar(dg_solu);		
+		std::cout << "L2 error at final time: " << err_l2 << std::endl;	
+	}
+	record_time.time("elasped time in computing error");
+
 	// --- End of Part 4 ---
 	// --------------------------------------------------------------------------------------------
 
 	return 0;
+}
+
+
+
+
+
+
+// initial condition in the summation of separable formulation
+std::vector<std::function<double(double, int)>> init_condition(int DIM)
+{
+	assert(DIM >=2 && DIM <=4);
+
+	if (DIM == 2)
+	// dim = 2
+	// init condition = cos(2*PI*(x0 + x1))
+	{
+		// func_1 = cos(2*PI*x0) * cos(2*PI*x1)
+		std::function<double(double, int)> init_func_1 = [](double x, int d) 
+		{
+			if (d == 0) { return cos(2.*Const::PI*x); }
+			else { return cos(2.*Const::PI*x); }
+		};
+		// func_2 = -sin(2*PI*x0) * sin(2*PI*x1)
+		std::function<double(double, int)> init_func_2 = [](double x, int d) 
+		{
+			if (d == 0) { return -sin(2.*Const::PI*x); }
+			else { return sin(2.*Const::PI*x); }
+		};
+		
+		// init condition = cos(2*PI*(x0 + x1)) 
+		return std::vector<std::function<double(double, int)>>{ init_func_1, init_func_2 };
+	}
+	else if (DIM == 3)
+	// dim = 3
+	// init condition = cos(2*PI*(x0 + x1 + x2))
+	{
+		// func_1 = cos(2*PI*x0) * cos(2*PI*x1) * cos(2*PI*x2)
+		std::function<double(double, int)> init_func_1 = [](double x, int d) 
+		{
+			if (d == 0) { return cos(2.*Const::PI*x); }
+			else if (d == 1) { return cos(2.*Const::PI*x); }
+			else { return cos(2.*Const::PI*x); }
+		};
+		// func_2 = -sin(2*PI*x0) * sin(2*PI*x1) * cos(2*PI*x2)
+		std::function<double(double, int)> init_func_2 = [](double x, int d) 
+		{
+			if (d == 0) { return -sin(2.*Const::PI*x); }
+			else if (d == 1) { return sin(2.*Const::PI*x); }
+			else { return cos(2.*Const::PI*x); }
+		};
+		// func_3 = -sin(2*PI*x0) * cos(2*PI*x1) * sin(2*PI*x2)
+		std::function<double(double, int)> init_func_3 = [](double x, int d) 
+		{
+			if (d == 0) { return -sin(2.*Const::PI*x); }
+			else if (d == 1) { return cos(2.*Const::PI*x); }
+			else { return sin(2.*Const::PI*x); }
+		};
+		// func_4 = -cos(2*PI*x0) * sin(2*PI*x1) * sin(2*PI*x2)
+		std::function<double(double, int)> init_func_4 = [](double x, int d) 
+		{
+			if (d == 0) { return -cos(2.*Const::PI*x); }
+			else if (d == 1) { return sin(2.*Const::PI*x); }
+			else { return sin(2.*Const::PI*x); }
+		};
+
+		// init condition = cos(2*PI*(x0 + x1 + x2)) 
+		return std::vector<std::function<double(double, int)>>{ init_func_1, init_func_2, init_func_3, init_func_4};
+	}
+	else
+	// dim = 4
+	// init condition = cos(2*PI*(x0 + x1 + x2 + x3)) 
+	{
+		// func_1 = cos(2*PI*x0) * cos(2*PI*x1) * cos(2*PI*x2) * cos(2*PI*x3)
+		std::function<double(double, int)> init_func_1 = [](double x, int d) 
+		{
+			if (d == 0) { return cos(2.*Const::PI*x); }
+			else if (d == 1) { return cos(2.*Const::PI*x); }
+			else if (d == 2) { return cos(2.*Const::PI*x); }
+			else { return cos(2.*Const::PI*x); }
+		};
+		// func_2 = - sin(2*PI*x0) * sin(2*PI*x1) * cos(2*PI*x2) * cos(2*PI*x3)
+		std::function<double(double, int)> init_func_2 = [](double x, int d) 
+		{
+			if (d == 0) { return -sin(2.*Const::PI*x); }
+			else if (d == 1) { return sin(2.*Const::PI*x); }
+			else if (d == 2) { return cos(2.*Const::PI*x); }
+			else { return cos(2.*Const::PI*x); }
+		};
+		// func_3 = - sin(2*PI*x0) * cos(2*PI*x1) * sin(2*PI*x2) * cos(2*PI*x2)
+		std::function<double(double, int)> init_func_3 = [](double x, int d) 
+		{
+			if (d == 0) { return -sin(2.*Const::PI*x); }
+			else if (d == 1) { return cos(2.*Const::PI*x); }
+			else if (d == 2) { return sin(2.*Const::PI*x); }
+			else { return cos(2.*Const::PI*x); }
+		};
+		// func_4 = - cos(2*PI*x0) * sin(2*PI*x1) * sin(2*PI*x2) * cos(2*PI*x3)
+		std::function<double(double, int)> init_func_4 = [](double x, int d) 
+		{
+			if (d == 0) { return -cos(2.*Const::PI*x); }
+			else if (d == 1) { return sin(2.*Const::PI*x); }
+			else if (d == 2) { return sin(2.*Const::PI*x); }
+			else { return cos(2.*Const::PI*x); }
+		};
+		// func_5 = - sin(2*PI*x0) * cos(2*PI*x1) * cos(2*PI*x2) * sin(2*PI*x3)
+		std::function<double(double, int)> init_func_5 = [](double x, int d) 
+		{
+			if (d == 0) { return -sin(2.*Const::PI*x); }
+			else if (d == 1) { return cos(2.*Const::PI*x); }
+			else if (d == 2) { return cos(2.*Const::PI*x); }
+			else { return sin(2.*Const::PI*x); }
+		};
+		// func_6 = - cos(2*PI*x0) * sin(2*PI*x1) * cos(2*PI*x2) * sin(2*PI*x3)
+		std::function<double(double, int)> init_func_6 = [](double x, int d) 
+		{
+			if (d == 0) { return -cos(2.*Const::PI*x); }
+			else if (d == 1) { return sin(2.*Const::PI*x); }
+			else if (d == 2) { return cos(2.*Const::PI*x); }
+			else { return sin(2.*Const::PI*x); }
+		};
+		// func_7 = - cos(2*PI*x0) * cos(2*PI*x1) * sin(2*PI*x2) * sin(2*PI*x2)
+		std::function<double(double, int)> init_func_7 = [](double x, int d) 
+		{
+			if (d == 0) { return -cos(2.*Const::PI*x); }
+			else if (d == 1) { return cos(2.*Const::PI*x); }
+			else if (d == 2) { return sin(2.*Const::PI*x); }
+			else { return sin(2.*Const::PI*x); }
+		};
+		// func_8 = sin(2*PI*x0) * sin(2*PI*x1) * sin(2*PI*x2) * sin(2*PI*x3)
+		std::function<double(double, int)> init_func_8 = [](double x, int d) 
+		{
+			if (d == 0) { return sin(2.*Const::PI*x); }
+			else if (d == 1) { return sin(2.*Const::PI*x); }
+			else if (d == 2) { return sin(2.*Const::PI*x); }
+			else { return sin(2.*Const::PI*x); }
+		};
+
+		// init condition = cos(2*PI*(x0 + x1 + x2 + x3)) 
+		return std::vector<std::function<double(double, int)>>{ init_func_1, init_func_2, init_func_3, init_func_4, init_func_5, init_func_6, init_func_7, init_func_8 };
+	}
+
 }

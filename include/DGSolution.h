@@ -63,7 +63,18 @@ public:
 	// function is given in separable form in each dimension
 	std::vector<double> get_error_separable_scalar(std::function<double(double, int)> func, const int gauss_points = 1) const;
 	std::vector<double> get_error_separable_system(std::vector<std::function<double(double, int)>> func, const int gauss_points = 1) const;
-	
+
+	// function is given in summation of several separable function
+	std::vector<double> get_error_separable_scalar_sum(std::vector<std::function<double(double, int)>> func, const int gauss_points = 1) const;
+	std::vector<double> get_error_separable_system_sum(std::vector<std::vector<std::function<double(double, int)>>> func, const int gauss_points = 1) const;	
+
+	// function is given in non-separable form in each dimension
+	std::vector<double> get_error_no_separable_scalar(std::function<double(std::vector<double>)> func, const int gauss_points = 1) const;
+	std::vector<double> get_error_no_separable_system(std::vector<std::function<double(std::vector<double>)>> func, const int gauss_points = 1) const;
+	std::vector<double> get_error_no_separable_system_each(std::vector<std::function<double(std::vector<double>)>> func, const int gauss_points, int ind_var) const;
+	std::vector<double> get_error_no_separable_system(std::function<double(std::vector<double>)> func, const int gauss_points, int ind_var) const;
+	std::vector<double> get_error_no_separable_system_omp(std::function<double(std::vector<double>)> func, const int gauss_points, int ind_var) const;
+
 	/**
 	 * @brief calculate the L2 error between numerical solution and a given function using split form:  (u - u_h)^2 = u^2 + u_h^2 - 2 * u * u_h
 	 * 
@@ -75,16 +86,6 @@ public:
 	 */
 	double get_L2_error_split_separable_scalar(std::function<double(double, int)> func, const double l2_norm_exact_soln) const;
 
-	// function is given in summation of several separable function
-	std::vector<double> get_error_separable_scalar_sum(std::vector<std::function<double(double, int)>> func, const int gauss_points = 1) const;
-	std::vector<double> get_error_separable_system_sum(std::vector<std::vector<std::function<double(double, int)>>> func, const int gauss_points = 1) const;
-	
-	// function is given in non-separable form in each dimension
-	std::vector<double> get_error_no_separable_scalar(std::function<double(std::vector<double>)> func, const int gauss_points = 1) const;
-	std::vector<double> get_error_no_separable_system(std::vector<std::function<double(std::vector<double>)>> func, const int gauss_points = 1) const;
-	std::vector<double> get_error_no_separable_system_each(std::vector<std::function<double(std::vector<double>)>> func, const int gauss_points, int ind_var) const;
-	std::vector<double> get_error_no_separable_system(std::function<double(std::vector<double>)> func, const int gauss_points, int ind_var) const;
-	std::vector<double> get_error_no_separable_system_omp(std::function<double(std::vector<double>)> func, const int gauss_points, int ind_var) const;
 	// ------------------------------------------------------------------------
 	// calculate error between value of Lagrange and Hermite basis and a given function
 	// this is only used in validation of accuracy of interpolation

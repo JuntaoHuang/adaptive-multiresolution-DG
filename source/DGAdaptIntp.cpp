@@ -46,7 +46,7 @@ void DGAdaptIntp::init_adaptive_intp_Herm(std::function<double(std::vector<doubl
     update_order_all_basis_in_dgmap();
 }
 
-double DGAdaptIntp::get_L2_error_split_adaptive_intp_scalar(DGAdaptIntp & exact_solu) const
+double DGAdaptIntp::get_L2_error_split_adaptive_intp_scalar(DGSolution & exact_solu) const
 {
     double err2 = 0.0;
 
@@ -100,6 +100,7 @@ double DGAdaptIntp::get_L2_error_split_adaptive_intp_scalar(DGAdaptIntp & exact_
     {
         std::cout << "negative value in DGAdaptIntp::get_L2_error_split_adaptive_intp_scalar" << std::endl;
         std::cout << "error is: " << err2 << std::endl;
+        return err2;
     } 
 
     return std::sqrt(abs(err2));
