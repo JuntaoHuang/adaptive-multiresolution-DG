@@ -66,9 +66,15 @@ public:
 	 */
 	std::vector<std::vector<int>> order_global_alpt;	
 	std::vector<std::vector<int>> order_global_intp;
-
-	// coefficients of Alpert's basis
+	
+	/**
+	 * @brief coefficients of Alpert's basis,
+	 * 		the index of this vector denotes the index of the unknown variable,
+	 * 		e.g., for scalar equation, the size of this vector is 1;
+	 * 		for system of equations, the size of this vector is the number of unknown variable
+	 */
 	std::vector<VecMultiD<double>> ucoe_alpt;
+
 	std::vector<VecMultiD<double>> ucoe_alpt_t_m1;	// coefficients at t_(n-1), this will be used in multistep class
 	std::vector<VecMultiD<double>> ucoe_alpt_predict;
 	std::vector<VecMultiD<double>> ucoe_alpt_predict_t_m1;
@@ -87,20 +93,20 @@ public:
 	// 
 	// ------------------------------------------------------------------------------------------------------------------------
 	/**
-	 * @brief 	store coefficients of interpolation basis for f(u)
-	 * 			the first index of vector denote unknown variables
+	 * @brief 	store coefficients of interpolation basis for f(u),
+	 * 			the first index of vector denote unknown variables,
 	 * 			the second index of vector denote the dimension
 	 */
 	std::vector< std::vector< VecMultiD<double> > > fucoe_intp;
 	/**
-	 * @brief 	store coefficients of interpolation basis in the intermediate stage of interpolation
-	 * 			the first index of vector denote unknown variables
+	 * @brief 	store coefficients of interpolation basis in the intermediate stage of interpolation,
+	 * 			the first index of vector denote unknown variables,
 	 * 			the second index of vector denote the dimension
 	 */
 	std::vector< std::vector< VecMultiD<std::vector<double> > > > fucoe_intp_inter;
 	/**
-	 * @brief 	store values of f(u) at interpolation points
-	 * 			the first index of vector denote unknown variables
+	 * @brief 	store values of f(u) at interpolation points,
+	 * 			the first index of vector denote unknown variables,
 	 * 			the second index of vector denote the dimension
 	 */	
 	std::vector< std::vector< VecMultiD<double> > > fp_intp;

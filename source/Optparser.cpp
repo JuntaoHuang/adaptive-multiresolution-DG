@@ -205,7 +205,8 @@ void OptionsParser::PrintOptions(std::ostream &out) const
       OptionType type = options[j].type;
 
       out << indent;
-      out << options[j].long_name << " ";
+      out << std::setw(5) << options[j].short_name << " ";
+      out << "    (" << options[j].long_name << ") "; 
       WriteValue(options[j], out);
       out << '\n';
    }

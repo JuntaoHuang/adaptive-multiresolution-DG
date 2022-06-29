@@ -32,6 +32,7 @@
 // 
 // You can also change DIM and AlptBasis::PMAX
 
+// initial condition given in the form of summation of some separable functions
 std::vector<std::function<double(double, int)>> init_condition(int DIM);
 
 int main(int argc, char *argv[])
@@ -161,6 +162,7 @@ int main(int argc, char *argv[])
 			std::cout << "num of time steps: " << num_time_step 
 					<< "; time step size: " << dt 
 					<< "; curr time: " << curr_time
+					<< "; DoF: " << dg_solu.get_dof()
 					<< std::endl;
 			record_time.time("elasped time in evolution");
 		}
