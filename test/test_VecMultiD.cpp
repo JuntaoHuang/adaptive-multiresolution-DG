@@ -223,3 +223,19 @@ TEST(VecMultiDTest, resize_test)
 
     EXPECT_EQ(u.size(), size_x * size_y * size_z);
 }
+
+TEST(VecMultiDTest, stdvec_to_vec_test)
+{
+    std::vector<double> u_vec{1.0, 2.0, 3.0, 4.0, 5.0, 6.0};
+
+    const std::vector<int> size{2, 3};
+    VecMultiD<double> u;    
+    u.stdvector_to_VecMultiD(u_vec, size);
+
+    EXPECT_NEAR(u.at(0,0), 1.0, TOL);
+    EXPECT_NEAR(u.at(0,1), 2.0, TOL);
+    EXPECT_NEAR(u.at(0,2), 3.0, TOL);
+    EXPECT_NEAR(u.at(1,0), 4.0, TOL);
+    EXPECT_NEAR(u.at(1,1), 5.0, TOL);
+    EXPECT_NEAR(u.at(1,2), 6.0, TOL);
+}

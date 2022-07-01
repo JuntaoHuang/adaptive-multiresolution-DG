@@ -95,6 +95,9 @@ public:
 	// print all the elements for vector (1D) and matrix (2D)
 	void print() const;
 
+	// convert (or reshape) std::vector<T> to VecMultiD<T>
+	void stdvector_to_VecMultiD(const std::vector<T> & vec, std::vector<int> size_VecMultiD);
+
 private:
 	int _dim;
 	std::vector<int> _vec_size;	//	_vec_size in each dimension	
@@ -599,4 +602,22 @@ std::vector<std::vector<int>> VecMultiD<T>::get_index_iterator() const
 	IterativeNestedLoop(index_iterator, _dim, _vec_size);
 	return index_iterator;
 
+}
+
+template<class T>
+void VecMultiD<T>::stdvector_to_VecMultiD(const std::vector<T> & vec, std::vector<int> size_VecMultiD)
+{		
+	_vec_size = size_VecMultiD;
+
+	_dim = _vec_size.size();
+
+	_total_size = 1;
+	for (size_t d = 0; d < _dim; d++)
+	{
+		_total_size *= _vec_size[d];
+	}
+
+	assert(_total_size == vec.size());
+
+	_vec = vec;
 }
