@@ -36,6 +36,39 @@ DGAdapt::DGAdapt(const bool sparse_, const int level_init_, const int NMAX_, All
 	}
 }
 
+DGAdapt::DGAdapt(const bool sparse_, const int level_init_, const int NMAX_, const int auxiliary_dim_, AllBasis<AlptBasis> & all_bas_, AllBasis<LagrBasis> & all_bas_Lag_, AllBasis<HermBasis> & all_bas_Her_, Hash & hash_, const double eps_, const double eta_, const bool is_find_ptr_alpt_, const bool is_find_ptr_intp_, const bool is_find_ptr_general_):
+		DGSolution(sparse_, level_init_, NMAX_, auxiliary_dim_, all_bas_, all_bas_Lag_, all_bas_Her_, hash_), 
+		eps(eps_), eta(eta_), 
+		is_find_ptr_alpt(is_find_ptr_alpt_), 
+		is_find_ptr_intp(is_find_ptr_intp_),
+		is_find_ptr_general(is_find_ptr_general_)
+{
+	assert(indicator_var_adapt.size() != 0);
+
+    init_chd_par();
+
+	update_leaf_zero_child();
+
+    update_leaf();
+
+    // update pointers related to DG operators
+    if (is_find_ptr_alpt)
+    {
+        find_ptr_vol_alpt();
+        find_ptr_flx_alpt();
+    }
+
+    if (is_find_ptr_intp)
+    {
+        find_ptr_vol_intp();
+        find_ptr_flx_intp();
+    }
+
+	if (is_find_ptr_general)
+	{
+		find_ptr_general();
+	}
+}
 
 void DGAdapt::init_separable_scalar(std::function<double(double, int)> scalar_func)
 {

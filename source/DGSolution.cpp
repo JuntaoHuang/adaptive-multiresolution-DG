@@ -56,6 +56,65 @@ DGSolution::DGSolution(const bool sparse_, const int level_init_, const int NMAX
 	update_order_all_basis_in_dgmap();
 }
 
+DGSolution::DGSolution(const bool sparse_, const int level_init_, const int NMAX_, const int auxiliary_dim_,
+	AllBasis<AlptBasis> & all_bas_, AllBasis<LagrBasis> all_bas_Lag_, AllBasis<HermBasis> all_bas_Her_, Hash & hash_):
+	sparse(sparse_), level_init(level_init_), NMAX(NMAX_), 
+	auxiliary_dim(auxiliary_dim_),
+	all_bas(all_bas_), all_bas_Lag(all_bas_Lag_), all_bas_Her(all_bas_Her_), hash(hash_)
+{
+	assert(ind_var_vec.size() != 0);
+	assert(Element::is_intp.size() == VEC_NUM);	
+	for (size_t num = 0; num < VEC_NUM; num++) { assert(Element::is_intp[num].size() == DIM); }
+	
+	// the first real_dim use full grid, the remaining auxiliary dimension use only zero level grid
+	const int real_dim = DIM - auxiliary_dim;
+	assert(sparse == 0);	// only full grid (in the first real_dim dimension) is allowed in this contructor
+
+	// generate vector narray as mesh level index
+	// each element is a vector of size dim: ( n1, n2, ..., n_(dim) )
+	// 0 <= n_d <= level_init,	for any 1 <= d <= real_dim
+	// n_d = 0					for any real_dim < d <= dim
+	std::vector<std::vector<int>> narray;
+	// const std::vector<int> narray_max(DIM, level_init + 1);
+	std::vector<int> narray_max(real_dim, level_init + 1);
+	for (size_t d = 0; d < auxiliary_dim; d++) { narray_max.push_back(1); }
+
+	IterativeNestedLoop(narray, DIM, narray_max); // generate a full-grid mesh level index; avoid loop of the dimension
+
+	for (auto const & lev_n : narray) 
+	{
+		// loop over all mesh level array of size dim
+
+		// // case 1: standard sparse grid, only account for basis with sum of index n <= NMAX		
+		// if (sparse == 1 && (std::accumulate(lev_n.begin(), lev_n.end(), 0) > level_init))  continue;
+
+		// case 2： full grid, generate index j: 0, 1, ..., 2^(n-1)-1, for n >= 2. Otherwise j=0 for n=0,1
+		std::vector<int> jarray_max;
+		for (auto const & n : lev_n)
+		{
+			int jmax = 1;
+			if (n != 0) jmax = pow_int(2, n - 1);
+
+			jarray_max.push_back(jmax);
+		}
+
+		std::vector<std::vector<int>> jarray;
+		IterativeNestedLoop(jarray, DIM, jarray_max);
+
+		for (auto const & sup_j : jarray)
+		{
+			// transform to odd index
+			std::vector<int> odd_j(sup_j.size());
+			for (size_t i = 0; i < sup_j.size(); i++) { odd_j[i] = 2 * sup_j[i] + 1; }
+			
+			Element elem(lev_n, odd_j, all_bas, hash);	
+			dg.insert({ elem.hash_key, elem });
+		}
+	}
+
+	update_order_all_basis_in_dgmap();
+}
+
 VecMultiD<double> DGSolution::seperable_project(std::function<double(double, int)> func) const
 {
 	const std::vector<int> size_coeff{DIM, all_bas.size()};

@@ -21,6 +21,7 @@ friend class IO;
 public:
 	// sparse: variable control initialization using sparse grid or not
 	DGSolution(const bool sparse_, const int level_init_, const int NMAX_, AllBasis<AlptBasis> & all_bas_, AllBasis<LagrBasis> all_bas_Lag_, AllBasis<HermBasis> all_bas_Her_, Hash & hash_);
+	DGSolution(const bool sparse_, const int level_init_, const int NMAX_, const int auxiliary_dim_, AllBasis<AlptBasis> & all_bas_, AllBasis<LagrBasis> all_bas_Lag_, AllBasis<HermBasis> all_bas_Her_, Hash & hash_);
 	~DGSolution() {};
 
 	static int DIM;
@@ -28,6 +29,9 @@ public:
 	static std::string prob;
 	static std::vector<int> ind_var_vec;	///< specify which components of unknown variables involve time evolution
 	
+	int auxiliary_dim;
+
+	// ------------------------------------------------------------------------
 	/// return maximum mesh level of current active elements in each dimension, a vector of size dim
 	/// this will be used to determined time step size dt in each time step
 	std::vector<int> max_mesh_level_vec() const;
