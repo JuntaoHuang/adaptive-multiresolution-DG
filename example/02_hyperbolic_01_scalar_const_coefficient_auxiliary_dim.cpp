@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
 	// constant variable
 	int NMAX = 4;
 	int N_init = NMAX;	
-	int is_sparse = 1;
+	int is_sparse = 0;
 	const std::string boundary_type = "period";
 	double final_time = 0.1;
 	const double cfl = 0.1;
