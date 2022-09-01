@@ -192,6 +192,29 @@ void DGAdapt::init_separable_system_sum(std::vector<std::vector<std::function<do
 	update_order_all_basis_in_dgmap();
 }
 
+
+// void DGAdapt::compute_moment_full_grid(DGAdapt f, int moment_order)
+// {	
+// 	// f should be a scalar function
+// 	assert(f.VEC_NUM == 1);
+
+// 	for (auto & iter : f.dg)
+// 	{
+// 		iter.second.ucoe_alpt[0].at(order_local_basis)
+
+// 		for (size_t num_vec = 0; num_vec < dgsolution_ptr->VEC_NUM; num_vec++)
+// 		{
+// 			for (size_t num_basis = 0; num_basis < iter.second.size_alpt(); num_basis++)
+// 			{
+// 				const std::vector<int> & order_local_basis = iter.second.order_local_alpt[num_basis];
+// 				iter.second.source[num_vec].at(order_local_basis) = vec_b(order_alpt_basis_in_dgmap);
+// 				order_alpt_basis_in_dgmap++;
+// 			}
+// 		}
+// 	}
+// }
+
+
 // the key member function in the DGAdapt class
 void DGAdapt::refine()
 {

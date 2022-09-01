@@ -124,6 +124,21 @@ int main(int argc, char *argv[])
 	DGAdapt dg_solu(sparse, N_init, NMAX, auxiliary_dim, all_bas, all_bas_Lag, all_bas_Her, hash, refine_eps, coarsen_eta, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp);
 	dg_solu.init_separable_scalar_sum(init_condition(real_dim));
 
+	// // compute moment
+	// DGAdapt f(sparse, N_init, NMAX, all_bas, all_bas_Lag, all_bas_Her, hash, refine_eps, coarsen_eta, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp);
+
+	// // sin(2*pi*x_1) * cos(2*pi*x_2) * x_3
+	// auto init_func_1 = [](double x, int d)
+	// 	{
+	// 		if (d == 0) { return sin(2.*Const::PI*x); }
+	// 		else if (d == 1) { return cos(2.*Const::PI*x); }
+	// 		else if (d == 2) { return x; }
+	// 	};
+	// // auto init_func_2 = [](double x, int d) { return (d==0) ? (cos(2.*Const::PI*x)) : (sin(2.*Const::PI*x)); };
+	// std::vector<std::function<double(double, int)>> init_func_f{init_func_1};
+
+	// f.init_separable_scalar_sum(init_func_f);
+
 	// --- End of Part 2 ---
 	// --------------------------------------------------------------------------------------------
 
