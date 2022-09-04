@@ -193,26 +193,38 @@ void DGAdapt::init_separable_system_sum(std::vector<std::vector<std::function<do
 }
 
 
-// void DGAdapt::compute_moment_full_grid(DGAdapt f, int moment_order)
-// {	
-// 	// f should be a scalar function
-// 	assert(f.VEC_NUM == 1);
+void DGAdapt::compute_moment_full_grid(DGAdapt f, int moment_order)
+{	
+	// f should be a scalar function
+	assert(f.VEC_NUM == 1);
+	
+	// loop over all the elements in the current dg solution (represent E or B in Maxwell equations)
+	for (auto & iter : dg)
+	{
+		// index (including mesh level and support index)
+		const std::array<std::vector<int>,2> & index = {iter.second.level, iter.second.suppt};
 
-// 	for (auto & iter : f.dg)
-// 	{
-// 		iter.second.ucoe_alpt[0].at(order_local_basis)
-
-// 		for (size_t num_vec = 0; num_vec < dgsolution_ptr->VEC_NUM; num_vec++)
-// 		{
-// 			for (size_t num_basis = 0; num_basis < iter.second.size_alpt(); num_basis++)
-// 			{
-// 				const std::vector<int> & order_local_basis = iter.second.order_local_alpt[num_basis];
-// 				iter.second.source[num_vec].at(order_local_basis) = vec_b(order_alpt_basis_in_dgmap);
-// 				order_alpt_basis_in_dgmap++;
-// 			}
-// 		}
-// 	}
-// }
+		// compute hash key and find it in distribution function f
+		int hash_key_f = hash.hash_key(index);
+		auto iter_f = f.dg.find(hash_key_f);
+		
+		if (iter_f == f.dg.end())
+		// if there is no corresponding element in f, then take coefficients in E or B to be zero
+		{
+			for (int deg = 0; deg < AlptBasis::PMAX + 1; deg++)
+			{
+				iter.second.ucoe_alpt[0].at(deg, 0) = 0.;
+			}
+		}
+		else
+		{
+			for (int deg = 0; deg < AlptBasis::PMAX + 1; deg++)
+			{
+				iter.second.ucoe_alpt[0].at(deg, 0) = iter_f->second.ucoe_alpt[0].at(deg, moment_order);
+			}
+		}
+	}
+}
 
 
 // the key member function in the DGAdapt class
