@@ -128,13 +128,15 @@ int main(int argc, char *argv[])
 	OperatorMatrix1D<HermBasis,AlptBasis> oper_matx_herm(all_bas_herm, all_bas_alpt, boundary_type);
 	OperatorMatrix1D<LagrBasis,AlptBasis> oper_matx_lagr(all_bas_lagr, all_bas_alpt, boundary_type);
 
-	// initialization of DG solution
+	// initialization of DG solution (distribution function f)
 	DGAdapt dg_solu(sparse, N_init, NMAX, all_bas_alpt, all_bas_lagr, all_bas_herm, hash, refine_eps, coarsen_eta, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp);
 
 	// project initial function into numerical solution
-	// f(x,y) = sin(2*pi*(x+y)) = sin(2*pi*x) * cos(2*pi*y) + cos(2*pi*x) * sin(2*pi*y)
-	auto init_func_1 = [](double x, int d) { return (d==0) ? (sin(2.*Const::PI*x)) : (cos(2.*Const::PI*x)); };
-	auto init_func_2 = [](double x, int d) { return (d==0) ? (cos(2.*Const::PI*x)) : (sin(2.*Const::PI*x)); };
+	// f(x,y) = sin(2*pi*(x+2*y)) = sin(2*pi*x) * cos(4*pi*y) + cos(2*pi*x) * sin(4*pi*y)
+	// auto init_func_1 = [](double x, int d) { return (d==0) ? (sin(2.*Const::PI*x)) : (cos(4.*Const::PI*x)); };
+	// auto init_func_2 = [](double x, int d) { return (d==0) ? (cos(2.*Const::PI*x)) : (sin(4.*Const::PI*x)); };
+	auto init_func_1 = [](double x, int d) { return (d==0) ? (cos(2.*Const::PI*x)) : (cos(2.*Const::PI*x)); };
+	auto init_func_2 = [](double x, int d) { return (d==0) ? (-sin(2.*Const::PI*x)) : (sin(2.*Const::PI*x)); };
 	std::vector<std::function<double(double, int)>> init_func{init_func_1, init_func_2};	
 	dg_solu.init_separable_scalar_sum(init_func);
 	
@@ -149,7 +151,7 @@ int main(int argc, char *argv[])
 	FastLagrIntp fast_lagr_intp(dg_solu, interp_lagr.Lag_pt_Alpt_1D, interp_lagr.Lag_pt_Alpt_1D_d1);
 
 	// constant in global Lax-Friedrich flux	
-	const std::vector<double> lxf_alpha{1.2, 1.2};
+	const std::vector<double> lxf_alpha{1.0, 1.0};
 	// wave speed in x and y direction
 	const std::vector<double> wave_speed{1., 1.};
 
@@ -158,6 +160,14 @@ int main(int argc, char *argv[])
 	Timer record_time;
 	double curr_time = 0.;
 	int num_time_step = 0;
+
+// // fixed time step
+// const int max_mesh = dg_solu.max_mesh_level();
+// const double dx = 1./pow(2., max_mesh);
+// double dt = dx * 0.1;
+// int total_time_step = ceil(final_time/dt) + 1;
+// dt = final_time/total_time_step;
+
 	while ( curr_time < final_time )
 	{			
 		// --- part 1: calculate time step dt ---	
@@ -179,50 +189,73 @@ int main(int argc, char *argv[])
 		// x direction: u^- * [v] * alpha_x / 2
 		linear.assemble_matrix_flx_scalar(0, -1, lxf_alpha[0]/2);
 		// x direction: u^+ * [v] * (-alpha_x) / 2
-		linear.assemble_matrix_flx_scalar(0, 1, -lxf_alpha[0]/2);
-				
+		linear.assemble_matrix_flx_scalar(0, 1, -lxf_alpha[0]/2);		
+		// y direction: u^- * [v] * alpha_x / 2
+		linear.assemble_matrix_flx_scalar(1, -1, lxf_alpha[1]/2);
+		// y direction: u^+ * [v] * (-alpha_x) / 2
+		linear.assemble_matrix_flx_scalar(1, 1, -lxf_alpha[1]/2);
+
         RK3SSP odeSolver(linear, dt);
         odeSolver.init();		
 
         for ( int stage = 0; stage < odeSolver.num_stage; ++stage )
         {			
+
+// Timer record_time;
+
             // Lagrange interpolation
             LagrInterpolation interp(dg_solu);
             // variable to control which flux need interpolation
             // the first index is # of unknown variable, the second one is # of dimension
             std::vector< std::vector<bool> > is_intp;
             is_intp.push_back(std::vector<bool>(DIM, true));
+			// is_intp.push_back(std::vector<bool>{true, false});
             
             // f = f(x, v, t) in 1D1V
             // interpolation for f * v
-            // f_t + v * f_x = 0
+            // f_t + v * f_x + E * f_v = 0
+			// // test: f_t + v * f_x + exp(x) * f_v = 0
+            // auto coe_func = [&](std::vector<double> x, int d) -> double 
+            // {
+            //     if (d==0) { return x[1]; }
+            //     else { return exp(x[0]); }
+            // };
+			// test: f_t + f_x + f_v = 0
             auto coe_func = [&](std::vector<double> x, int d) -> double 
             {
-                if (d==0) { return x[1]; }
-                else { return 0.; }
+                if (d==0) { return 1.; }
+                else { return 1.; }
             };
             interp.var_coeff_u_Lagr_fast(coe_func, is_intp, fast_lagr_intp);
+// record_time.time("interpolation");
+// record_time.reset();
 
             // calculate rhs and update Element::ucoe_alpt
             dg_solu.set_rhs_zero();
 
             fast_rhs_lagr.rhs_vol_scalar();
             fast_rhs_lagr.rhs_flx_intp_scalar();
+// record_time.time("bilinear form for nonlinear term");
+// record_time.reset();
 
             // add to rhs in odeSolver
             odeSolver.set_rhs_zero();
             odeSolver.add_rhs_to_eigenvec();
             odeSolver.add_rhs_matrix(linear);
+// record_time.time("bilinear form for linear term");
+// record_time.reset();
 
-            // source term
-            double source_time = curr_time;
-            if (stage == 1) { source_time += dt; }
-            else if (stage == 2) { source_time += dt/2.; }
-            // compute projection of source term f(x, y, t) with separable formulation
-            auto source_func = [&](std::vector<double> x, int i)->double { return 2*Const::PI*(x[1]+1.)*cos(2*Const::PI*(source_time+x[0]+x[1])); };
-            Domain2DIntegral source_operator(dg_solu, all_bas_alpt, source_func);
-            source_operator.assemble_vector();
-            odeSolver.add_rhs_vector(source_operator.vec_b);
+            // // source term
+            // double source_time = curr_time;
+            // if (stage == 1) { source_time += dt; }
+            // else if (stage == 2) { source_time += dt/2.; }
+            // // compute projection of source term f(x, y, t) with separable formulation
+            // // auto source_func = [&](std::vector<double> x, int i)->double { return 2*Const::PI*(x[1]+1.)*cos(2*Const::PI*(source_time+x[0]+x[1])); };
+			// auto source_func = [&](std::vector<double> x, int i)->double { return 2*Const::PI*(exp(x[0])+x[1]+1.)*cos(2*Const::PI*(source_time+x[0]+x[1])); };
+            // Domain2DIntegral source_operator(dg_solu, all_bas_alpt, source_func);
+            // source_operator.assemble_vector();
+            // odeSolver.add_rhs_vector(source_operator.vec_b);
+// record_time.time("source term");
             
             odeSolver.step_stage(stage);
             odeSolver.final();
@@ -250,8 +283,11 @@ int main(int argc, char *argv[])
 			<< "; num of basis: " << dg_solu.size_basis_alpt() << std::endl;
 
 	auto final_func = [&](std::vector<double> x) -> double 
-	{
-		return sin(2*Const::PI*(x[0] + x[1] + final_time));
+	{	
+		// test: f_t + f_x + f_v = 0
+		// return sin(2*Const::PI*(x[0] + 2 * x[1] - 3 * final_time));
+		return cos(2*Const::PI*(x[0] + x[1] - 2 * final_time));
+		// return sin(2*Const::PI*(x[0] + x[1] + final_time));
 	};
 
 	std::vector<double> err = dg_solu.get_error_no_separable_scalar(final_func, num_gauss_pt_compute_error);

@@ -56,6 +56,8 @@ class LagrInterpolation:
 
 		void var_coeff_u_Lagr(std::function<double(std::vector<double>, int)> coefficient_func, std::vector< std::vector<bool> > is_intp);
 
+		// is_intp: variable to control which flux need interpolation
+		// the first index is # of unknown variable, the second one is # of dimension
 		void var_coeff_u_Lagr_fast(std::function<double(std::vector<double>, int)> coefficient_func, 
 		                           std::vector< std::vector<bool> > is_intp, FastLagrIntp & fastLagr);
 
