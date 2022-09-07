@@ -65,8 +65,7 @@ int main(int argc, char *argv[])
 	int is_init_sparse = 1;			// use full grid (0) or sparse grid (1) when initialization
 									// is this an initial mesh used? 
 	double final_time = 0.03;
-	double cfl = 0.05;		// cfl number when exist shock, you should tune this parameter
-	double cfl_hyper = 0.2;	// cfl number when no shock, 0.33 for P1, 0.2 for P2
+	double cfl = 0.2;
 	int rk_order = 3;
 	std::string boundary_type = "period";	// this variable will be used in constructors of class OperatorMatrix1D
 
@@ -151,7 +150,7 @@ int main(int argc, char *argv[])
 	FastLagrIntp fast_lagr_intp(dg_solu, interp_lagr.Lag_pt_Alpt_1D, interp_lagr.Lag_pt_Alpt_1D_d1);
 
 	// constant in global Lax-Friedrich flux	
-	const std::vector<double> lxf_alpha{1.0, 1.0};
+	const std::vector<double> lxf_alpha{1.1, 1.1};
 	// wave speed in x and y direction
 	const std::vector<double> wave_speed{1., 1.};
 
@@ -214,18 +213,18 @@ int main(int argc, char *argv[])
             // f = f(x, v, t) in 1D1V
             // interpolation for f * v
             // f_t + v * f_x + E * f_v = 0
-			// // test: f_t + v * f_x + exp(x) * f_v = 0
-            // auto coe_func = [&](std::vector<double> x, int d) -> double 
-            // {
-            //     if (d==0) { return x[1]; }
-            //     else { return exp(x[0]); }
-            // };
-			// test: f_t + f_x + f_v = 0
+			// test: f_t + sin(2*pi*v) * f_x + cos(2*pi*x) * f_v = 0
             auto coe_func = [&](std::vector<double> x, int d) -> double 
             {
-                if (d==0) { return 1.; }
-                else { return 1.; }
+                if (d==0) { return sin(2*Const::PI*(x[1])); }
+                else { return cos(2*Const::PI*(x[0])); }
             };
+			// // test: f_t + f_x + f_v = 0
+            // auto coe_func = [&](std::vector<double> x, int d) -> double 
+            // {
+            //     if (d==0) { return 1.; }
+            //     else { return 1.; }
+            // };
             interp.var_coeff_u_Lagr_fast(coe_func, is_intp, fast_lagr_intp);
 // record_time.time("interpolation");
 // record_time.reset();
@@ -245,16 +244,16 @@ int main(int argc, char *argv[])
 // record_time.time("bilinear form for linear term");
 // record_time.reset();
 
-            // // source term
-            // double source_time = curr_time;
-            // if (stage == 1) { source_time += dt; }
-            // else if (stage == 2) { source_time += dt/2.; }
-            // // compute projection of source term f(x, y, t) with separable formulation
-            // // auto source_func = [&](std::vector<double> x, int i)->double { return 2*Const::PI*(x[1]+1.)*cos(2*Const::PI*(source_time+x[0]+x[1])); };
-			// auto source_func = [&](std::vector<double> x, int i)->double { return 2*Const::PI*(exp(x[0])+x[1]+1.)*cos(2*Const::PI*(source_time+x[0]+x[1])); };
-            // Domain2DIntegral source_operator(dg_solu, all_bas_alpt, source_func);
-            // source_operator.assemble_vector();
-            // odeSolver.add_rhs_vector(source_operator.vec_b);
+            // source term
+            double source_time = curr_time;
+            if (stage == 1) { source_time += dt; }
+            else if (stage == 2) { source_time += dt/2.; }
+            // compute projection of source term f(x, y, t) with separable formulation
+            // auto source_func = [&](std::vector<double> x, int i)->double { return 2*Const::PI*(x[1]+1.)*cos(2*Const::PI*(source_time+x[0]+x[1])); };
+			auto source_func = [&](std::vector<double> x, int i)->double { return (sin(2*Const::PI*x[1]) + cos(2*Const::PI*x[0]) + 1.) * (-2*Const::PI) * sin(2*Const::PI*(source_time+x[0]+x[1])); };
+            Domain2DIntegral source_operator(dg_solu, all_bas_alpt, source_func);
+            source_operator.assemble_vector();
+            odeSolver.add_rhs_vector(source_operator.vec_b);
 // record_time.time("source term");
             
             odeSolver.step_stage(stage);
@@ -286,8 +285,8 @@ int main(int argc, char *argv[])
 	{	
 		// test: f_t + f_x + f_v = 0
 		// return sin(2*Const::PI*(x[0] + 2 * x[1] - 3 * final_time));
-		return cos(2*Const::PI*(x[0] + x[1] - 2 * final_time));
-		// return sin(2*Const::PI*(x[0] + x[1] + final_time));
+		// return cos(2*Const::PI*(x[0] + x[1] - 2 * final_time));
+		return cos(2*Const::PI*(x[0] + x[1] + final_time));
 	};
 
 	std::vector<double> err = dg_solu.get_error_no_separable_scalar(final_func, num_gauss_pt_compute_error);
