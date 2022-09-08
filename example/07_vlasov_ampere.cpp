@@ -62,9 +62,9 @@ int main(int argc, char *argv[])
 	// computation parameter
 	int NMAX = 3;
 	int N_init = NMAX;
-	int is_init_sparse = 1;			// use full grid (0) or sparse grid (1) when initialization
+	int is_init_sparse = 0;			// use full grid (0) or sparse grid (1) when initialization
 									// is this an initial mesh used? 
-	double final_time = 0.03;
+	double final_time = 1e-2;
 	double cfl = 0.2;
 	int rk_order = 3;
 	std::string boundary_type = "period";	// this variable will be used in constructors of class OperatorMatrix1D
@@ -128,7 +128,7 @@ int main(int argc, char *argv[])
 	OperatorMatrix1D<LagrBasis,AlptBasis> oper_matx_lagr(all_bas_lagr, all_bas_alpt, boundary_type);
 
 	// initialization of DG solution (distribution function f)
-	DGAdapt dg_solu(sparse, N_init, NMAX, all_bas_alpt, all_bas_lagr, all_bas_herm, hash, refine_eps, coarsen_eta, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp);
+	DGAdapt dg_f(sparse, N_init, NMAX, all_bas_alpt, all_bas_lagr, all_bas_herm, hash, refine_eps, coarsen_eta, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp);
 
 	// project initial function into numerical solution
 	// f(x,y) = sin(2*pi*(x+2*y)) = sin(2*pi*x) * cos(4*pi*y) + cos(2*pi*x) * sin(4*pi*y)
@@ -137,17 +137,25 @@ int main(int argc, char *argv[])
 	auto init_func_1 = [](double x, int d) { return (d==0) ? (cos(2.*Const::PI*x)) : (cos(2.*Const::PI*x)); };
 	auto init_func_2 = [](double x, int d) { return (d==0) ? (-sin(2.*Const::PI*x)) : (sin(2.*Const::PI*x)); };
 	std::vector<std::function<double(double, int)>> init_func{init_func_1, init_func_2};	
-	dg_solu.init_separable_scalar_sum(init_func);
+	dg_f.init_separable_scalar_sum(init_func);
 	
+	// initialization of electric field E
+	const int auxiliary_dim = 1;
+	DGAdapt dg_electric(sparse, N_init, NMAX, auxiliary_dim, all_bas_alpt, all_bas_lagr, all_bas_herm, hash, refine_eps, coarsen_eta, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp);
+
+	// E(x,y) = cos(2*pi*x)
+	auto init_func_electric = [](double x, int d) { return (d==0) ? (cos(2.*Const::PI*x)) : (1.); };
+	dg_electric.init_separable_scalar(init_func_electric);
+
     // output
-	IO inout(dg_solu);
+	IO inout(dg_f);
 
 	// ------------------------------
-	HyperbolicDiffFluxLagrRHS fast_rhs_lagr(dg_solu, oper_matx_lagr);		
+	HyperbolicDiffFluxLagrRHS fast_rhs_lagr(dg_f, oper_matx_lagr);		
 
 	// fast Lagrange interpolation
-    LagrInterpolation interp_lagr(dg_solu);
-	FastLagrIntp fast_lagr_intp(dg_solu, interp_lagr.Lag_pt_Alpt_1D, interp_lagr.Lag_pt_Alpt_1D_d1);
+    LagrInterpolation interp_lagr(dg_f);
+	FastLagrIntp fast_lagr_intp(dg_f, interp_lagr.Lag_pt_Alpt_1D, interp_lagr.Lag_pt_Alpt_1D_d1);
 
 	// constant in global Lax-Friedrich flux	
 	const std::vector<double> lxf_alpha{1.1, 1.1};
@@ -161,7 +169,7 @@ int main(int argc, char *argv[])
 	int num_time_step = 0;
 
 // // fixed time step
-// const int max_mesh = dg_solu.max_mesh_level();
+// const int max_mesh = dg_f.max_mesh_level();
 // const double dx = 1./pow(2., max_mesh);
 // double dt = dx * 0.1;
 // int total_time_step = ceil(final_time/dt) + 1;
@@ -170,7 +178,7 @@ int main(int argc, char *argv[])
 	while ( curr_time < final_time )
 	{			
 		// --- part 1: calculate time step dt ---	
-		const std::vector<int> & max_mesh = dg_solu.max_mesh_level_vec();
+		const std::vector<int> & max_mesh = dg_f.max_mesh_level_vec();
 		
 		// dt = cfl/(c1/dx1 + c2/dx2 + ... + c_dim/dx_dim)
 		double sum_c_dx = 0.;	// this variable stores (c1/dx1 + c2/dx2 + ... + c_dim/dx_dim)
@@ -184,7 +192,7 @@ int main(int argc, char *argv[])
         // --- part 4: time evolution
 		// linear operator
 		// x direction: - [u] * [v] * alpha_x / 2
-		HyperbolicAlpt linear(dg_solu, oper_matx_alpt);
+		HyperbolicAlpt linear(dg_f, oper_matx_alpt);
 		// x direction: u^- * [v] * alpha_x / 2
 		linear.assemble_matrix_flx_scalar(0, -1, lxf_alpha[0]/2);
 		// x direction: u^+ * [v] * (-alpha_x) / 2
@@ -203,7 +211,7 @@ int main(int argc, char *argv[])
 // Timer record_time;
 
             // Lagrange interpolation
-            LagrInterpolation interp(dg_solu);
+            LagrInterpolation interp(dg_f);
             // variable to control which flux need interpolation
             // the first index is # of unknown variable, the second one is # of dimension
             std::vector< std::vector<bool> > is_intp;
@@ -216,8 +224,16 @@ int main(int argc, char *argv[])
 			// test: f_t + sin(2*pi*v) * f_x + cos(2*pi*x) * f_v = 0
             auto coe_func = [&](std::vector<double> x, int d) -> double 
             {
-                if (d==0) { return sin(2*Const::PI*(x[1])); }
-                else { return cos(2*Const::PI*(x[0])); }
+                if (d==0) 
+				{ 
+					return sin(2*Const::PI*(x[1])); 
+				}
+                else 
+				{
+					// return cos(2*Const::PI*(x[0]));
+					std::vector<int> zero_derivative(DIM, 0);
+					return dg_electric.val(x, zero_derivative)[0];					
+				}
             };
 			// // test: f_t + f_x + f_v = 0
             // auto coe_func = [&](std::vector<double> x, int d) -> double 
@@ -230,7 +246,7 @@ int main(int argc, char *argv[])
 // record_time.reset();
 
             // calculate rhs and update Element::ucoe_alpt
-            dg_solu.set_rhs_zero();
+            dg_f.set_rhs_zero();
 
             fast_rhs_lagr.rhs_vol_scalar();
             fast_rhs_lagr.rhs_flx_intp_scalar();
@@ -251,7 +267,7 @@ int main(int argc, char *argv[])
             // compute projection of source term f(x, y, t) with separable formulation
             // auto source_func = [&](std::vector<double> x, int i)->double { return 2*Const::PI*(x[1]+1.)*cos(2*Const::PI*(source_time+x[0]+x[1])); };
 			auto source_func = [&](std::vector<double> x, int i)->double { return (sin(2*Const::PI*x[1]) + cos(2*Const::PI*x[0]) + 1.) * (-2*Const::PI) * sin(2*Const::PI*(source_time+x[0]+x[1])); };
-            Domain2DIntegral source_operator(dg_solu, all_bas_alpt, source_func);
+            Domain2DIntegral source_operator(dg_f, all_bas_alpt, source_func);
             source_operator.assemble_vector();
             odeSolver.add_rhs_vector(source_operator.vec_b);
 // record_time.time("source term");
@@ -279,7 +295,7 @@ int main(int argc, char *argv[])
 	
 	record_time.time("running time");
 	std::cout << "num of time steps: " << num_time_step
-			<< "; num of basis: " << dg_solu.size_basis_alpt() << std::endl;
+			<< "; num of basis: " << dg_f.size_basis_alpt() << std::endl;
 
 	auto final_func = [&](std::vector<double> x) -> double 
 	{	
@@ -289,7 +305,7 @@ int main(int argc, char *argv[])
 		return cos(2*Const::PI*(x[0] + x[1] + final_time));
 	};
 
-	std::vector<double> err = dg_solu.get_error_no_separable_scalar(final_func, num_gauss_pt_compute_error);
+	std::vector<double> err = dg_f.get_error_no_separable_scalar(final_func, num_gauss_pt_compute_error);
 	std::cout << "L1, L2 and Linf error at final time: " << err[0] << ", " << err[1] << ", " << err[2] << std::endl;
 		
 	std::string file_name = "error_N" + std::to_string(NMAX) + ".txt";
