@@ -32,16 +32,24 @@ void DGAdaptIntp::init_adaptive_intp_Lag(std::function<double(std::vector<double
     update_order_all_basis_in_dgmap();
 }
 
+void DGAdaptIntp::init_adaptive_intp(std::function<double(std::vector<double>, int)> func)
+{    
+    // --- step 1: use adaptive Lagrange interpolation to approximate the exact solution
+    LagrInterpolation interp(*this);
+    init_adaptive_intp_Lag(func, interp);
+
+    // --- step 2: transformation coefficient of Lagrange basis to Alpert basis
+    OperatorMatrix1D<LagrBasis, AlptBasis> oper_matx_lagr_alpt(this->all_bas_Lag, this->all_bas, "period");
+    FastLagrInit fastLagr_init_ext(*this, oper_matx_lagr_alpt);
+    fastLagr_init_ext.eval_ucoe_Alpt_Lagr();
+}
+
 void DGAdaptIntp::init_adaptive_intp_Herm(std::function<double(std::vector<double>, int, std::vector<int>)> func, HermInterpolation & interp)
 {
-    // std::cout << "size of dg before initial refine is: " << dg.size() << std::endl;
-
     interp.init_coe_ada_intp_Herm(func);
 
     //refine recursively
     refine_init_intp_Herm(func, interp);
-
-    // std::cout << "size of dg after initial refine is: " <<  dg.size() << std::endl;
 
     update_order_all_basis_in_dgmap();
 }

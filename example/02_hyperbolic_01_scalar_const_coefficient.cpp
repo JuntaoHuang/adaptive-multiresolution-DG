@@ -206,7 +206,6 @@ int main(int argc, char *argv[])
 		OperatorMatrix1D<LagrBasis, LagrBasis> oper_matx_lagr_lagr(all_bas_Lag, all_bas_Lag, boundary_type);
 		
 		DGAdaptIntp dg_solu_ext(sparse, N_init, NMAX, all_bas, all_bas_Lag, all_bas_Her, hash, refine_eps_ext, coarsen_eta_ext, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp, oper_matx_lagr_lagr, oper_matx_herm_herm);
-		LagrInterpolation interp_ext(dg_solu_ext);
 
 		auto final_func = [=](std::vector<double> x, int i) 
 		{	
@@ -214,19 +213,14 @@ int main(int argc, char *argv[])
 			for (int d = 0; d < DIM; d++) { sum_x += x[d]; };
 			return cos(2.*Const::PI*(sum_x - DIM * final_time)); 
 		};
-		dg_solu_ext.init_adaptive_intp_Lag(final_func, interp_ext);
-
-		// --- step 2: transformation coefficient of Lagrange basis to Alpert basis
-		OperatorMatrix1D<LagrBasis, AlptBasis> oper_matx_lagr_alpt(all_bas_Lag, all_bas, boundary_type);;
-		FastLagrInit fastLagr_init_ext(dg_solu_ext, oper_matx_lagr_alpt);
-		fastLagr_init_ext.eval_ucoe_Alpt_Lagr();
+		dg_solu_ext.init_adaptive_intp(final_func);
 
 		// --- step 3: compute L2 error between u_h (numerical solution) and v_h (interpolation to exact solution)
 		double err_l2 = dg_solu_ext.get_L2_error_split_adaptive_intp_scalar(dg_solu);		
 		std::cout << "L2 error at final time: " << err_l2 << std::endl;	
 	}
 	record_time.time("elasped time in computing error");
-
+	
 	// --- End of Part 4 ---
 	// --------------------------------------------------------------------------------------------
 

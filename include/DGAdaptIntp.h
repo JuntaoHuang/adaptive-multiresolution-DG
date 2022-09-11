@@ -25,8 +25,30 @@ public:
 	 */
 	void init_adaptive_intp_Lag(std::function<double(std::vector<double>, int)> func, LagrInterpolation & interp);
 
-	// adaptive Hermite interpolation for a given function
-	// this will update coefficients of interpolation basis, i.e. Element::ucoe_intp in DG solution
+	/**
+	 * @brief initialization of DG solution given in non-separable form
+	 * this function will do the following steps:
+	 * step 1: call void init_adaptive_intp_Lag() to 
+	 * do adaptive Lagrange interpolation and update coefficients of interpolation basis (Element::ucoe_intp in DG solution)
+	 * step 2:
+	 * transformation coefficient of Lagrange basis to Alpert basis
+	 * this function can be used in the initialization of DG solution
+	 * 
+	 * @param func the first index in func: coordinate in physical domain;
+	 * 			the second index in func: the number of unknown variables
+	 */
+	void init_adaptive_intp(std::function<double(std::vector<double>, int)> func);
+
+	/**
+	 * @brief adaptive Hermite interpolation for a given function
+	 * this will update coefficients of interpolation basis, i.e. Element::ucoe_intp in DG solution
+	 * 
+	 * @note this function is similar to void init_adaptive_intp_Lag()
+	 * the current one use Hermite interpolation but the other one use Lagrange interpolation
+	 * 
+	 * @param func 
+	 * @param interp 
+	 */
 	void init_adaptive_intp_Herm(std::function<double(std::vector<double>, int, std::vector<int>)> func, HermInterpolation & interp);
 
 	// compute L2 error between two numerical solutions represented by DG basis
