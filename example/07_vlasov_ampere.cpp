@@ -3,6 +3,7 @@
 #include "Basis.h"
 #include "BilinearForm.h"
 #include "DGAdapt.h"
+#include "DGAdaptIntp.h"
 #include "DGSolution.h"
 #include "Element.h"
 #include "ExactSolution.h"
@@ -21,7 +22,41 @@
 #include "FastMultiplyLU.h"
 #include "Timer.h"
 
+// numerical result for full grid:
+// for i in {2..7}; do ./07_vlasov_ampere -s 0 -NM $i -N0 $i -p 1000; done
+// 
+// LagrBasis::msh_case = 1:
+// L1, L2 and Linf error at final time:
+// 0.00977663, 0.0145172, 0.0321203
+// 0.00147612, 0.00303159, 0.0146294
+// 0.000166637, 0.00064198, 0.00661077
+// 2.08798e-05, 8.31085e-05, 0.00104469
+// 3.65917e-06, 1.51696e-05, 0.000181649
+// 6.90303e-07, 2.99507e-06, 3.38135e-05
+// order
+// 2.7275    2.2596    1.1346
+// 3.1470    2.2395    1.1460
+// 2.9965    2.9495    2.6617
+// 2.5125    2.4538    2.5238
+// 2.4062    2.3405    2.4255
+// 
+// LagrBasis::msh_case = 2:
+// L1, L2 and Linf error at final time:
+// 0.00511512, 0.007072, 0.0152497
+// 0.00142072, 0.00270807, 0.0126668
+// 0.000163363, 0.000623661, 0.00641348
+// 2.02479e-05, 8.01085e-05, 0.00100447
+// order
 
+// numerical result for sparse grid:
+// for i in {5..10}; do ./07_vlasov_ampere -s 1 -NM $i -N0 $i -p 1000; done
+// 
+// 0.00196079, 0.00414682, 0.0412254
+// 0.000458176, 0.000981532, 0.00976287
+// 5.71906e-05, 0.000135878, 0.00151081
+// 1.02366e-05, 2.5748e-05, 0.000585272
+// 1.47486e-06, 4.05604e-06, 0.000116428
+// 2.72721e-07, 7.92076e-07, 1.81119e-05
 int main(int argc, char *argv[])
 {
 	// constant variable
@@ -37,18 +72,12 @@ int main(int argc, char *argv[])
 	HermBasis::msh_case = 1;
 
 	Element::PMAX_alpt = AlptBasis::PMAX;	// max polynomial degree for Alpert's basis functions
-	Element::PMAX_intp = HermBasis::PMAX;	// max polynomial degree for interpolation basis functions
+	Element::PMAX_intp = LagrBasis::PMAX;	// max polynomial degree for interpolation basis functions
 	Element::DIM = DIM;			// dimension
 	Element::VEC_NUM = 1;		// num of unknown variables in PDEs
 
 	DGSolution::DIM = Element::DIM;
 	DGSolution::VEC_NUM = Element::VEC_NUM;
-
-	DGSolution::ind_var_vec = { 0 };
-	DGAdapt::indicator_var_adapt = { 0 };
-
-	Element::is_intp.resize(Element::VEC_NUM);
-	for (size_t num = 0; num < Element::VEC_NUM; num++) { Element::is_intp[num] = std::vector<bool>{true, false}; }
 
 	Interpolation::DIM = DGSolution::DIM;
 	Interpolation::VEC_NUM = DGSolution::VEC_NUM;
@@ -64,7 +93,7 @@ int main(int argc, char *argv[])
 	int N_init = NMAX;
 	int is_init_sparse = 0;			// use full grid (0) or sparse grid (1) when initialization
 									// is this an initial mesh used? 
-	double final_time = 1e-2;
+	double final_time = 2 * Const::PI;
 	double cfl = 0.2;
 	int rk_order = 3;
 	std::string boundary_type = "period";	// this variable will be used in constructors of class OperatorMatrix1D
@@ -79,7 +108,7 @@ int main(int argc, char *argv[])
 	// variable control if need to adaptively find out pointers related to Alpert and interpolation basis in DG operators
 	// if using artificial viscosity, we should set is_adapt_find_ptr_intp to be true
 	bool is_adapt_find_ptr_alpt = true;
-	bool is_adapt_find_ptr_intp = true;
+	bool is_adapt_find_ptr_intp = false;
 
 	// output info in screen every time steps
 	int output_time_interval = 10;
@@ -127,26 +156,39 @@ int main(int argc, char *argv[])
 	OperatorMatrix1D<HermBasis,AlptBasis> oper_matx_herm(all_bas_herm, all_bas_alpt, boundary_type);
 	OperatorMatrix1D<LagrBasis,AlptBasis> oper_matx_lagr(all_bas_lagr, all_bas_alpt, boundary_type);
 
+	OperatorMatrix1D<HermBasis, HermBasis> oper_matx_herm_herm(all_bas_herm, all_bas_herm, boundary_type);
+	OperatorMatrix1D<LagrBasis, LagrBasis> oper_matx_lagr_lagr(all_bas_lagr, all_bas_lagr, boundary_type);
+
 	// initialization of DG solution (distribution function f)
-	DGAdapt dg_f(sparse, N_init, NMAX, all_bas_alpt, all_bas_lagr, all_bas_herm, hash, refine_eps, coarsen_eta, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp);
+	DGAdaptIntp dg_f(sparse, N_init, NMAX, all_bas_alpt, all_bas_lagr, all_bas_herm, hash, refine_eps, coarsen_eta, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp, oper_matx_lagr_lagr, oper_matx_herm_herm);
 
-	// project initial function into numerical solution
-	// f(x,y) = sin(2*pi*(x+2*y)) = sin(2*pi*x) * cos(4*pi*y) + cos(2*pi*x) * sin(4*pi*y)
-	// auto init_func_1 = [](double x, int d) { return (d==0) ? (sin(2.*Const::PI*x)) : (cos(4.*Const::PI*x)); };
-	// auto init_func_2 = [](double x, int d) { return (d==0) ? (cos(2.*Const::PI*x)) : (sin(4.*Const::PI*x)); };
-	auto init_func_1 = [](double x, int d) { return (d==0) ? (cos(2.*Const::PI*x)) : (cos(2.*Const::PI*x)); };
-	auto init_func_2 = [](double x, int d) { return (d==0) ? (-sin(2.*Const::PI*x)) : (sin(2.*Const::PI*x)); };
-	std::vector<std::function<double(double, int)>> init_func{init_func_1, init_func_2};	
-	dg_f.init_separable_scalar_sum(init_func);
+	// // project initial function into numerical solution
+	// auto init_func_1 = [](double x, int d) { return (d==0) ? (cos(2.*Const::PI*x)) : (cos(2.*Const::PI*x)); };
+	// auto init_func_2 = [](double x, int d) { return (d==0) ? (-sin(2.*Const::PI*x)) : (sin(2.*Const::PI*x)); };
+	// std::vector<std::function<double(double, int)>> init_func{init_func_1, init_func_2};	
+	// dg_f.init_separable_scalar_sum(init_func);
+	auto init_func = [=](std::vector<double> x, int i)
+	{
+		// solid body rotation
+		// example 4.2 in Guo and Cheng. "A sparse grid discontinuous Galerkin method for high-dimensional transport equations and its application to kinetic simulations." SISC (2016)
+		const std::vector<double> xc{0.75, 0.5};
+		const double b = 0.23;
+		double r_sqr = 0.;
+		for (int d = 0; d < DIM; d++) { r_sqr += pow(x[d] - xc[d], 2.); };
+		double r = pow(r_sqr, 0.5);
+		if (r <= b) { return pow(b, DIM-1) * pow(cos(Const::PI*r/(2.*b)), 6.); }
+		else { return 0.; }
+	};
+	dg_f.init_adaptive_intp(init_func);
+
+	// // initialization of electric field E
+	// const int auxiliary_dim = 1;
+	// DGAdapt dg_electric(sparse, N_init, NMAX, auxiliary_dim, all_bas_alpt, all_bas_lagr, all_bas_herm, hash, refine_eps, coarsen_eta, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp);
+
+	// // E(x,y) = cos(2*pi*x)
+	// auto init_func_electric = [](double x, int d) { return (d==0) ? (cos(2.*Const::PI*x)) : (1.); };
+	// dg_electric.init_separable_scalar(init_func_electric);
 	
-	// initialization of electric field E
-	const int auxiliary_dim = 1;
-	DGAdapt dg_electric(sparse, N_init, NMAX, auxiliary_dim, all_bas_alpt, all_bas_lagr, all_bas_herm, hash, refine_eps, coarsen_eta, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp);
-
-	// E(x,y) = cos(2*pi*x)
-	auto init_func_electric = [](double x, int d) { return (d==0) ? (cos(2.*Const::PI*x)) : (1.); };
-	dg_electric.init_separable_scalar(init_func_electric);
-
     // output
 	IO inout(dg_f);
 
@@ -158,7 +200,7 @@ int main(int argc, char *argv[])
 	FastLagrIntp fast_lagr_intp(dg_f, interp_lagr.Lag_pt_Alpt_1D, interp_lagr.Lag_pt_Alpt_1D_d1);
 
 	// constant in global Lax-Friedrich flux	
-	const std::vector<double> lxf_alpha{1.1, 1.1};
+	const double lxf_alpha = 1.;
 	// wave speed in x and y direction
 	const std::vector<double> wave_speed{1., 1.};
 
@@ -167,13 +209,6 @@ int main(int argc, char *argv[])
 	Timer record_time;
 	double curr_time = 0.;
 	int num_time_step = 0;
-
-// // fixed time step
-// const int max_mesh = dg_f.max_mesh_level();
-// const double dx = 1./pow(2., max_mesh);
-// double dt = dx * 0.1;
-// int total_time_step = ceil(final_time/dt) + 1;
-// dt = final_time/total_time_step;
 
 	while ( curr_time < final_time )
 	{			
@@ -191,16 +226,15 @@ int main(int argc, char *argv[])
 		
         // --- part 4: time evolution
 		// linear operator
-		// x direction: - [u] * [v] * alpha_x / 2
 		HyperbolicAlpt linear(dg_f, oper_matx_alpt);
-		// x direction: u^- * [v] * alpha_x / 2
-		linear.assemble_matrix_flx_scalar(0, -1, lxf_alpha[0]/2);
-		// x direction: u^+ * [v] * (-alpha_x) / 2
-		linear.assemble_matrix_flx_scalar(0, 1, -lxf_alpha[0]/2);		
-		// y direction: u^- * [v] * alpha_x / 2
-		linear.assemble_matrix_flx_scalar(1, -1, lxf_alpha[1]/2);
-		// y direction: u^+ * [v] * (-alpha_x) / 2
-		linear.assemble_matrix_flx_scalar(1, 1, -lxf_alpha[1]/2);
+		// x direction: u^- * [v] * alpha / 2
+		linear.assemble_matrix_flx_scalar(0, -1, lxf_alpha/2);
+		// x direction: - u^+ * [v] * alpha / 2
+		linear.assemble_matrix_flx_scalar(0, 1, -lxf_alpha/2);		
+		// y direction: u^- * [v] * alpha / 2
+		linear.assemble_matrix_flx_scalar(1, -1, lxf_alpha/2);
+		// y direction: - u^+ * [v] * alpha / 2
+		linear.assemble_matrix_flx_scalar(1, 1, -lxf_alpha/2);
 
         RK3SSP odeSolver(linear, dt);
         odeSolver.init();		
@@ -216,31 +250,31 @@ int main(int argc, char *argv[])
             // the first index is # of unknown variable, the second one is # of dimension
             std::vector< std::vector<bool> > is_intp;
             is_intp.push_back(std::vector<bool>(DIM, true));
-			// is_intp.push_back(std::vector<bool>{true, false});
             
             // f = f(x, v, t) in 1D1V
             // interpolation for f * v
             // f_t + v * f_x + E * f_v = 0
 			// test: f_t + sin(2*pi*v) * f_x + cos(2*pi*x) * f_v = 0
-            auto coe_func = [&](std::vector<double> x, int d) -> double 
-            {
-                if (d==0) 
-				{ 
-					return sin(2*Const::PI*(x[1])); 
-				}
-                else 
-				{
-					// return cos(2*Const::PI*(x[0]));
-					std::vector<int> zero_derivative(DIM, 0);
-					return dg_electric.val(x, zero_derivative)[0];					
-				}
-            };
-			// // test: f_t + f_x + f_v = 0
             // auto coe_func = [&](std::vector<double> x, int d) -> double 
             // {
-            //     if (d==0) { return 1.; }
-            //     else { return 1.; }
+            //     if (d==0) 
+			// 	{ 
+			// 		return sin(2*Const::PI*(x[1])); 
+			// 	}
+            //     else 
+			// 	{
+			// 		// return cos(2*Const::PI*(x[0]));
+			// 		std::vector<int> zero_derivative(DIM, 0);
+			// 		return dg_electric.val(x, zero_derivative)[0];					
+			// 	}
             // };
+			// test: f_t + (-x2 + 0.5) * f_x1 + (x1 - 0.5) * f_x2 = 0
+			// solid body rotation
+            auto coe_func = [&](std::vector<double> x, int d) -> double 
+            {
+                if (d==0) { return -x[1] + 0.5; }
+                else { return x[0] - 0.5; }
+            };
             interp.var_coeff_u_Lagr_fast(coe_func, is_intp, fast_lagr_intp);
 // record_time.time("interpolation");
 // record_time.reset();
@@ -260,16 +294,16 @@ int main(int argc, char *argv[])
 // record_time.time("bilinear form for linear term");
 // record_time.reset();
 
-            // source term
-            double source_time = curr_time;
-            if (stage == 1) { source_time += dt; }
-            else if (stage == 2) { source_time += dt/2.; }
-            // compute projection of source term f(x, y, t) with separable formulation
-            // auto source_func = [&](std::vector<double> x, int i)->double { return 2*Const::PI*(x[1]+1.)*cos(2*Const::PI*(source_time+x[0]+x[1])); };
-			auto source_func = [&](std::vector<double> x, int i)->double { return (sin(2*Const::PI*x[1]) + cos(2*Const::PI*x[0]) + 1.) * (-2*Const::PI) * sin(2*Const::PI*(source_time+x[0]+x[1])); };
-            Domain2DIntegral source_operator(dg_f, all_bas_alpt, source_func);
-            source_operator.assemble_vector();
-            odeSolver.add_rhs_vector(source_operator.vec_b);
+            // // source term
+            // double source_time = curr_time;
+            // if (stage == 1) { source_time += dt; }
+            // else if (stage == 2) { source_time += dt/2.; }
+            // // compute projection of source term f(x, y, t) with separable formulation
+            // // auto source_func = [&](std::vector<double> x, int i)->double { return 2*Const::PI*(x[1]+1.)*cos(2*Const::PI*(source_time+x[0]+x[1])); };
+			// auto source_func = [&](std::vector<double> x, int i)->double { return (sin(2*Const::PI*x[1]) + cos(2*Const::PI*x[0]) + 1.) * (-2*Const::PI) * sin(2*Const::PI*(source_time+x[0]+x[1])); };
+            // Domain2DIntegral source_operator(dg_f, all_bas_alpt, source_func);
+            // source_operator.assemble_vector();
+            // odeSolver.add_rhs_vector(source_operator.vec_b);
 // record_time.time("source term");
             
             odeSolver.step_stage(stage);
@@ -302,7 +336,10 @@ int main(int argc, char *argv[])
 		// test: f_t + f_x + f_v = 0
 		// return sin(2*Const::PI*(x[0] + 2 * x[1] - 3 * final_time));
 		// return cos(2*Const::PI*(x[0] + x[1] - 2 * final_time));
-		return cos(2*Const::PI*(x[0] + x[1] + final_time));
+		// return cos(2*Const::PI*(x[0] + x[1] + final_time));
+		
+		// solid body rotation
+		return init_func(x, 0);
 	};
 
 	std::vector<double> err = dg_f.get_error_no_separable_scalar(final_func, num_gauss_pt_compute_error);
