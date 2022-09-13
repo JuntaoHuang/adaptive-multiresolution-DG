@@ -79,6 +79,26 @@
 // 3.0222    2.9726    2.7307
 // 2.8440    2.7828    2.4008
 // 2.6954    2.6342    1.7069
+// sparse grid
+// LagrBasis::msh_case = 1
+// 80.0892, 113.378, 312.923
+// 1.91581e+07, 2.6025e+07, 7.58415e+07
+// 8.37956e+23, 1.42582e+24, 6.74819e+24
+// 3.34031e+61, 7.23456e+61, 5.12755e+62
+// 8.9904e+140, 2.30897e+141, 2.25564e+142
+// LagrBasis::msh_case = 2
+// 0.0362431, 0.0511725, 0.11858
+// 0.0532136, 0.0906722, 0.383674
+// 0.0531663, 0.100788, 0.597923
+// 0.798468, 2.40259, 18.6084
+// 384969, 1.29615e+06, 1.19112e+07
+// LagrBasis::msh_case = 3
+// 0.0146614, 0.0173568, 0.0328734
+// 0.0102148, 0.01536, 0.0544565
+// 0.0044042, 0.00740571, 0.0466604
+// 0.00159391, 0.0028898, 0.0176127
+// 0.000400531, 0.000811244, 0.00503487
+// 7.19094e-05, 0.000170648, 0.00158929
 int main(int argc, char *argv[])
 {
 	// constant variable
@@ -88,7 +108,7 @@ int main(int argc, char *argv[])
 	AlptBasis::PMAX = 2;
 
 	LagrBasis::PMAX = 3;
-	LagrBasis::msh_case = 1;
+	LagrBasis::msh_case = 3;
 
 	HermBasis::PMAX = 3;
 	HermBasis::msh_case = 1;
@@ -114,8 +134,7 @@ int main(int argc, char *argv[])
 	int NMAX = 3;
 	int N_init = NMAX;
 	int is_init_sparse = 0;			// use full grid (0) or sparse grid (1) when initialization
-									// is this an initial mesh used? 
-	double final_time = 2 * Const::PI;
+	double final_time = 1.5;
 	double cfl = 0.2;
 	int rk_order = 3;
 	std::string boundary_type = "period";	// this variable will be used in constructors of class OperatorMatrix1D
@@ -191,13 +210,13 @@ int main(int argc, char *argv[])
 	// dg_f.init_separable_scalar_sum(init_func);
 	auto init_func = [=](std::vector<double> x, int i)
 	{
-		// example 4.2 (solid body rotation) in Guo and Cheng. "A sparse grid discontinuous Galerkin method for high-dimensional transport equations and its application to kinetic simulations." SISC (2016)
-		const std::vector<double> xc{0.75, 0.5};
-		const double b = 0.23;
+		// // example 4.2 (solid body rotation) in Guo and Cheng. "A sparse grid discontinuous Galerkin method for high-dimensional transport equations and its application to kinetic simulations." SISC (2016)
+		// const std::vector<double> xc{0.75, 0.5};
+		// const double b = 0.23;
 
-		// // example 4.3 (deformational flow)
-		// const std::vector<double> xc{0.65, 0.5};
-		// const double b = 0.35;
+		// example 4.3 (deformational flow)
+		const std::vector<double> xc{0.65, 0.5};
+		const double b = 0.35;
 				
 		double r_sqr = 0.;
 		for (int d = 0; d < DIM; d++) { r_sqr += pow(x[d] - xc[d], 2.); };
@@ -294,22 +313,22 @@ int main(int argc, char *argv[])
 			// 		return dg_electric.val(x, zero_derivative)[0];					
 			// 	}
             // };
-			// solid body rotation: f_t + (-x2 + 0.5) * f_x1 + (x1 - 0.5) * f_x2 = 0
-            auto coe_func = [&](std::vector<double> x, int d) -> double 
-            {
-                if (d==0) { return -x[1] + 0.5; }
-                else { return x[0] - 0.5; }
-            };
-			// // deformational flow: f_t + ( sin(pi*x1)^2 * sin(2*pi*x2) * g(t) ) * f_x1 + ( -sin(pi*x2)^2 * sin(2*pi*x1) * g(t) ) * f_x2 = 0
-            // double gt_time = curr_time;
-            // if (stage == 1) { gt_time += dt; }
-            // else if (stage == 2) { gt_time += dt/2.; }
-			// double gt = cos(Const::PI*gt_time/final_time);
+			// // solid body rotation: f_t + (-x2 + 0.5) * f_x1 + (x1 - 0.5) * f_x2 = 0
             // auto coe_func = [&](std::vector<double> x, int d) -> double 
-            // {				
-            //     if (d==0) { return pow(sin(Const::PI*x[0]), 2.) * sin(2*Const::PI*x[1]) * gt; }
-            //     else { return - pow(sin(Const::PI*x[1]), 2.) * sin(2*Const::PI*x[0]) * gt; }
+            // {
+            //     if (d==0) { return -x[1] + 0.5; }
+            //     else { return x[0] - 0.5; }
             // };
+			// deformational flow: f_t + ( sin(pi*x1)^2 * sin(2*pi*x2) * g(t) ) * f_x1 + ( -sin(pi*x2)^2 * sin(2*pi*x1) * g(t) ) * f_x2 = 0
+            double gt_time = curr_time;
+            if (stage == 1) { gt_time += dt; }
+            else if (stage == 2) { gt_time += dt/2.; }
+			double gt = cos(Const::PI*gt_time/final_time);
+            auto coe_func = [&](std::vector<double> x, int d) -> double 
+            {				
+                if (d==0) { return pow(sin(Const::PI*x[0]), 2.) * sin(2*Const::PI*x[1]) * gt; }
+                else { return - pow(sin(Const::PI*x[1]), 2.) * sin(2*Const::PI*x[0]) * gt; }
+            };
             interp.var_coeff_u_Lagr_fast(coe_func, is_intp, fast_lagr_intp);
 // record_time.time("interpolation");
 // record_time.reset();
