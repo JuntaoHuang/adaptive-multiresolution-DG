@@ -25,7 +25,7 @@
 // numerical result for full grid:
 // for i in {2..7}; do ./07_vlasov_ampere -s 0 -NM $i -N0 $i -p 1000; done
 // 
-// LagrBasis::msh_case = 1:
+// P2 + LagrBasis::msh_case = 1
 // L1, L2 and Linf error at final time:
 // 0.00977663, 0.0145172, 0.0321203
 // 0.00147612, 0.00303159, 0.0146294
@@ -39,14 +39,18 @@
 // 2.9965    2.9495    2.6617
 // 2.5125    2.4538    2.5238
 // 2.4062    2.3405    2.4255
-// 
-// LagrBasis::msh_case = 2:
+// P2 + LagrBasis::msh_case = 2
 // L1, L2 and Linf error at final time:
 // 0.00511512, 0.007072, 0.0152497
 // 0.00142072, 0.00270807, 0.0126668
 // 0.000163363, 0.000623661, 0.00641348
 // 2.02479e-05, 8.01085e-05, 0.00100447
+// 3.6186e-06, 1.49575e-05, 0.000178568
 // order
+// 1.8481    1.3849    0.2677
+// 3.1205    2.1184    0.9819
+// 3.0122    2.9607    2.6747
+// 2.4843    2.4211    2.4919
 
 // numerical result for sparse grid:
 // for i in {5..10}; do ./07_vlasov_ampere -s 1 -NM $i -N0 $i -p 1000; done
@@ -57,6 +61,24 @@
 // 1.02366e-05, 2.5748e-05, 0.000585272
 // 1.47486e-06, 4.05604e-06, 0.000116428
 // 2.72721e-07, 7.92076e-07, 1.81119e-05
+// order
+// 2.0975    2.0789    2.0782
+// 3.0021    2.8527    2.6920
+// 2.4820    2.3998    1.3681
+// 2.7951    2.6663    2.3297
+// 2.4351    2.3564    2.6844
+
+// deformational flow (full grid)
+// 0.00707721, 0.0097736, 0.0233013
+// 0.000995681, 0.0022954, 0.011081
+// 0.000122556, 0.000292421, 0.00166943
+// 1.70688e-05, 4.24906e-05, 0.000316131
+// 2.63512e-06, 6.84403e-06, 9.68338e-05
+// order
+// 2.8294    2.0901    1.0723
+// 3.0222    2.9726    2.7307
+// 2.8440    2.7828    2.4008
+// 2.6954    2.6342    1.7069
 int main(int argc, char *argv[])
 {
 	// constant variable
@@ -169,10 +191,14 @@ int main(int argc, char *argv[])
 	// dg_f.init_separable_scalar_sum(init_func);
 	auto init_func = [=](std::vector<double> x, int i)
 	{
-		// solid body rotation
-		// example 4.2 in Guo and Cheng. "A sparse grid discontinuous Galerkin method for high-dimensional transport equations and its application to kinetic simulations." SISC (2016)
+		// example 4.2 (solid body rotation) in Guo and Cheng. "A sparse grid discontinuous Galerkin method for high-dimensional transport equations and its application to kinetic simulations." SISC (2016)
 		const std::vector<double> xc{0.75, 0.5};
 		const double b = 0.23;
+
+		// // example 4.3 (deformational flow)
+		// const std::vector<double> xc{0.65, 0.5};
+		// const double b = 0.35;
+				
 		double r_sqr = 0.;
 		for (int d = 0; d < DIM; d++) { r_sqr += pow(x[d] - xc[d], 2.); };
 		double r = pow(r_sqr, 0.5);
@@ -268,13 +294,22 @@ int main(int argc, char *argv[])
 			// 		return dg_electric.val(x, zero_derivative)[0];					
 			// 	}
             // };
-			// test: f_t + (-x2 + 0.5) * f_x1 + (x1 - 0.5) * f_x2 = 0
-			// solid body rotation
+			// solid body rotation: f_t + (-x2 + 0.5) * f_x1 + (x1 - 0.5) * f_x2 = 0
             auto coe_func = [&](std::vector<double> x, int d) -> double 
             {
                 if (d==0) { return -x[1] + 0.5; }
                 else { return x[0] - 0.5; }
             };
+			// // deformational flow: f_t + ( sin(pi*x1)^2 * sin(2*pi*x2) * g(t) ) * f_x1 + ( -sin(pi*x2)^2 * sin(2*pi*x1) * g(t) ) * f_x2 = 0
+            // double gt_time = curr_time;
+            // if (stage == 1) { gt_time += dt; }
+            // else if (stage == 2) { gt_time += dt/2.; }
+			// double gt = cos(Const::PI*gt_time/final_time);
+            // auto coe_func = [&](std::vector<double> x, int d) -> double 
+            // {				
+            //     if (d==0) { return pow(sin(Const::PI*x[0]), 2.) * sin(2*Const::PI*x[1]) * gt; }
+            //     else { return - pow(sin(Const::PI*x[1]), 2.) * sin(2*Const::PI*x[0]) * gt; }
+            // };
             interp.var_coeff_u_Lagr_fast(coe_func, is_intp, fast_lagr_intp);
 // record_time.time("interpolation");
 // record_time.reset();
