@@ -481,9 +481,11 @@ public:
     ~HyperbolicDiffFluxLagrRHS() {};
 
     // calculate rhs of volume integral term for scalar equation
+    // this function will ADD (not copy) computational result to Element::rhs
     void rhs_vol_scalar();
 
     // calculate rhs of flux integral term involving Hermite interpolation basis
+    // this function will ADD (not copy) computational result to Element::rhs
     void rhs_flx_intp_scalar();
 
 private:

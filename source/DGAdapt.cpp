@@ -193,7 +193,7 @@ void DGAdapt::init_separable_system_sum(std::vector<std::vector<std::function<do
 }
 
 
-void DGAdapt::compute_moment_full_grid(DGAdapt f, int moment_order)
+void DGAdapt::compute_moment_full_grid(DGAdapt f, const std::vector<int> & moment_order, const std::vector<double> & moment_order_weight, const int num_vec)
 {	
 	// f should be a scalar function
 	assert(f.VEC_NUM == 1);
@@ -208,19 +208,24 @@ void DGAdapt::compute_moment_full_grid(DGAdapt f, int moment_order)
 		int hash_key_f = hash.hash_key(index);
 		auto iter_f = f.dg.find(hash_key_f);
 		
-		if (iter_f == f.dg.end())
-		// if there is no corresponding element in f, then take coefficients in E or B to be zero
+		// if (iter_f == f.dg.end())
+		// // if there is no corresponding element in f, then take coefficients in E or B to be zero
+		// {
+		// 	for (int deg = 0; deg < AlptBasis::PMAX + 1; deg++)
+		// 	{
+		// 		iter.second.ucoe_alpt[0].at(deg, 0) = 0.;
+		// 	}
+		// }
+		// else
+		if (iter_f != f.dg.end())
 		{
 			for (int deg = 0; deg < AlptBasis::PMAX + 1; deg++)
 			{
-				iter.second.ucoe_alpt[0].at(deg, 0) = 0.;
-			}
-		}
-		else
-		{
-			for (int deg = 0; deg < AlptBasis::PMAX + 1; deg++)
-			{
-				iter.second.ucoe_alpt[0].at(deg, 0) = iter_f->second.ucoe_alpt[0].at(deg, moment_order);
+				double moment = 0.;
+				for (int i = 0; i < moment_order.size(); i++)
+				{
+					iter.second.rhs[num_vec].at(deg, 0) += iter_f->second.ucoe_alpt[0].at(deg, moment_order[i]) * moment_order_weight[i];
+				}
 			}
 		}
 	}
