@@ -116,7 +116,7 @@ int main(int argc, char *argv[])
 	AlptBasis::PMAX = 2;
 
 	LagrBasis::PMAX = 3;
-	LagrBasis::msh_case = 3;
+	LagrBasis::msh_case = 1;
 
 	HermBasis::PMAX = 3;
 	HermBasis::msh_case = 1;
@@ -209,30 +209,31 @@ int main(int argc, char *argv[])
 	OperatorMatrix1D<LagrBasis, LagrBasis> oper_matx_lagr_lagr(all_bas_lagr, all_bas_lagr, boundary_type);
 
 	// initialization of DG solution (distribution function f)
-	DGAdaptIntp dg_f(sparse, N_init, NMAX, all_bas_alpt, all_bas_lagr, all_bas_herm, hash, refine_eps, coarsen_eta, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp, oper_matx_lagr_lagr, oper_matx_herm_herm);
-
+	DGAdapt dg_f(sparse, N_init, NMAX, all_bas_alpt, all_bas_lagr, all_bas_herm, hash, refine_eps, coarsen_eta, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp);
+	// DGAdaptIntp dg_f(sparse, N_init, NMAX, all_bas_alpt, all_bas_lagr, all_bas_herm, hash, refine_eps, coarsen_eta, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp, oper_matx_lagr_lagr, oper_matx_herm_herm);
+	
 	// // project initial function into numerical solution
-	// auto init_func_1 = [](double x, int d) { return (d==0) ? (cos(2.*Const::PI*x)) : (cos(2.*Const::PI*x)); };
+	auto init_func_1 = [](double x, int d) { return exp(- (x - 0.5) * (x - 0.5) * 100.); };
 	// auto init_func_2 = [](double x, int d) { return (d==0) ? (-sin(2.*Const::PI*x)) : (sin(2.*Const::PI*x)); };
-	// std::vector<std::function<double(double, int)>> init_func{init_func_1, init_func_2};	
-	// dg_f.init_separable_scalar_sum(init_func);
-	auto init_func = [=](std::vector<double> x, int i)
-	{
-		// // example 4.2 (solid body rotation) in Guo and Cheng. "A sparse grid discontinuous Galerkin method for high-dimensional transport equations and its application to kinetic simulations." SISC (2016)
-		// const std::vector<double> xc{0.75, 0.5};
-		// const double b = 0.23;
+	std::vector<std::function<double(double, int)>> init_func{init_func_1};	
+	dg_f.init_separable_scalar_sum(init_func);
+	// auto init_func = [=](std::vector<double> x, int i)
+	// {
+	// 	// // example 4.2 (solid body rotation) in Guo and Cheng. "A sparse grid discontinuous Galerkin method for high-dimensional transport equations and its application to kinetic simulations." SISC (2016)
+	// 	// const std::vector<double> xc{0.75, 0.5};
+	// 	// const double b = 0.23;
 
-		// example 4.3 (deformational flow)
-		const std::vector<double> xc{0.65, 0.5};
-		const double b = 0.35;
+	// 	// example 4.3 (deformational flow)
+	// 	const std::vector<double> xc{0.65, 0.5};
+	// 	const double b = 0.35;
 				
-		double r_sqr = 0.;
-		for (int d = 0; d < DIM; d++) { r_sqr += pow(x[d] - xc[d], 2.); };
-		double r = pow(r_sqr, 0.5);
-		if (r <= b) { return pow(b, DIM-1) * pow(cos(Const::PI*r/(2.*b)), 6.); }
-		else { return 0.; }
-	};
-	dg_f.init_adaptive_intp(init_func);
+	// 	double r_sqr = 0.;
+	// 	for (int d = 0; d < DIM; d++) { r_sqr += pow(x[d] - xc[d], 2.); };
+	// 	double r = pow(r_sqr, 0.5);
+	// 	if (r <= b) { return pow(b, DIM-1) * pow(cos(Const::PI*r/(2.*b)), 6.); }
+	// 	else { return 0.; }
+	// };
+	// dg_f.init_adaptive_intp(init_func);
 
 	// // initialization of electric field E
 	// const int auxiliary_dim = 1;
@@ -253,7 +254,7 @@ int main(int argc, char *argv[])
 	FastLagrIntp fast_lagr_intp(dg_f, interp_lagr.Lag_pt_Alpt_1D, interp_lagr.Lag_pt_Alpt_1D_d1);
 
 	// constant in global Lax-Friedrich flux	
-	const double lxf_alpha = 1.;
+	const double lxf_alpha = 0.5;
 	// wave speed in x and y direction
 	const std::vector<double> wave_speed{1., 1.};
 
@@ -262,6 +263,13 @@ int main(int argc, char *argv[])
 	Timer record_time;
 	double curr_time = 0.;
 	int num_time_step = 0;
+
+	// Lagrange interpolation
+	LagrInterpolation interp(dg_f);
+	// variable to control which flux need interpolation
+	// the first index is # of unknown variable, the second one is # of dimension
+	std::vector< std::vector<bool> > is_intp;
+	is_intp.push_back(std::vector<bool>(DIM, true));
 
 	while ( curr_time < final_time )
 	{			
@@ -296,13 +304,6 @@ int main(int argc, char *argv[])
         {			
 
 // Timer record_time;
-
-            // Lagrange interpolation
-            LagrInterpolation interp(dg_f);
-            // variable to control which flux need interpolation
-            // the first index is # of unknown variable, the second one is # of dimension
-            std::vector< std::vector<bool> > is_intp;
-            is_intp.push_back(std::vector<bool>(DIM, true));
             
             // f = f(x, v, t) in 1D1V
             // interpolation for f * v
@@ -321,22 +322,22 @@ int main(int argc, char *argv[])
 			// 		return dg_electric.val(x, zero_derivative)[0];					
 			// 	}
             // };
-			// // solid body rotation: f_t + (-x2 + 0.5) * f_x1 + (x1 - 0.5) * f_x2 = 0
-            // auto coe_func = [&](std::vector<double> x, int d) -> double 
-            // {
-            //     if (d==0) { return -x[1] + 0.5; }
-            //     else { return x[0] - 0.5; }
-            // };
-			// deformational flow: f_t + ( sin(pi*x1)^2 * sin(2*pi*x2) * g(t) ) * f_x1 + ( -sin(pi*x2)^2 * sin(2*pi*x1) * g(t) ) * f_x2 = 0
-            double gt_time = curr_time;
-            if (stage == 1) { gt_time += dt; }
-            else if (stage == 2) { gt_time += dt/2.; }
-			double gt = cos(Const::PI*gt_time/final_time);
+			// solid body rotation: f_t + (-x2 + 0.5) * f_x1 + (x1 - 0.5) * f_x2 = 0
             auto coe_func = [&](std::vector<double> x, int d) -> double 
-            {				
-                if (d==0) { return pow(sin(Const::PI*x[0]), 2.) * sin(2*Const::PI*x[1]) * gt; }
-                else { return - pow(sin(Const::PI*x[1]), 2.) * sin(2*Const::PI*x[0]) * gt; }
+            {
+                if (d==0) { return -x[1] + 0.5; }
+                else { return x[0] - 0.5; }
             };
+			// // deformational flow: f_t + ( sin(pi*x1)^2 * sin(2*pi*x2) * g(t) ) * f_x1 + ( -sin(pi*x2)^2 * sin(2*pi*x1) * g(t) ) * f_x2 = 0
+            // double gt_time = curr_time;
+            // if (stage == 1) { gt_time += dt; }
+            // else if (stage == 2) { gt_time += dt/2.; }
+			// double gt = cos(Const::PI*gt_time/final_time);
+            // auto coe_func = [&](std::vector<double> x, int d) -> double 
+            // {				
+            //     if (d==0) { return pow(sin(Const::PI*x[0]), 2.) * sin(2*Const::PI*x[1]) * gt; }
+            //     else { return - pow(sin(Const::PI*x[1]), 2.) * sin(2*Const::PI*x[0]) * gt; }
+            // };
             interp.var_coeff_u_Lagr_fast(coe_func, is_intp, fast_lagr_intp);
 // record_time.time("interpolation");
 // record_time.reset();
@@ -400,8 +401,10 @@ int main(int argc, char *argv[])
 		// return cos(2*Const::PI*(x[0] + x[1] - 2 * final_time));
 		// return cos(2*Const::PI*(x[0] + x[1] + final_time));
 		
-		// solid body rotation
-		return init_func(x, 0);
+		// // solid body rotation
+		// return init_func(x, 0);
+
+		return exp(- (x[0] - 0.5) * (x[0] - 0.5) * 100. - (x[1] - 0.5) * (x[1] - 0.5) * 100.);
 	};
 
 	std::vector<double> err = dg_f.get_error_no_separable_scalar(final_func, num_gauss_pt_compute_error);
