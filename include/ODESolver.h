@@ -13,7 +13,7 @@ public:
     
     ~ODESolver() {};
 
-    // transfer eigenvector ODESolver::ucoe to Element::ucoe_alpt and set ODESolver::rhs to be zero
+    // transfer eigenvector ODESolver::ucoe to Element::ucoe_alpt and set eigenvector ODESolver::rhs to be zero
     virtual void final() { eigenvec_to_ucoe(); rhs.setZero(); };
 	template<class T>
 	void final_HJ(HamiltonJacobiLDG<T> & HJ) { HJ.copy_eigenvec_to_phi(ucoe); rhs.setZero(); };
