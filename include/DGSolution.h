@@ -44,7 +44,7 @@ public:
 
 	// return maximum absolute value of the solution with sampling points from a given maximum mesh level
 	std::vector<double> max_abs_value(const std::vector<int> & sample_max_mesh_level) const;
-	
+
 	// ------------------------------------------------------------------------
 	// pointers to elements when computing DG operator
 	// ------------------------------------------------------------------------
@@ -172,6 +172,9 @@ public:
 
 	/// copy Element::ucoe_ut to Element::ucoe_alpt
 	void copy_ucoe_ut_to_ucoe();
+
+	/// copy Element::rhs to Element::ucoe_alpt
+	void copy_rhs_to_ucoe();
 
 	/// key member in this class, store all the active elements and its hash key
 	std::unordered_map<int, Element> dg;

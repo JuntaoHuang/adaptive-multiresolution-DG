@@ -197,6 +197,14 @@ void DGAdapt::compute_moment_full_grid(DGAdapt f, const std::vector<int> & momen
 {	
 	// f should be a scalar function
 	assert(f.VEC_NUM == 1);
+	assert(moment_order.size() == moment_order_weight.size());
+
+	const int moment_order_size = moment_order.size();
+	assert(moment_order_size <= 3);
+	for (int i = 0; i < moment_order_size; i++)
+	{
+		assert((moment_order[i] == i) && ("moment_order in DGAdapt::compute_moment_full_grid() is not monotone"));
+	}
 	
 	// loop over all the elements in the current dg solution (represent E or B in Maxwell equations)
 	for (auto & iter : dg)
@@ -221,11 +229,25 @@ void DGAdapt::compute_moment_full_grid(DGAdapt f, const std::vector<int> & momen
 		{
 			for (int deg = 0; deg < AlptBasis::PMAX + 1; deg++)
 			{
-				double moment = 0.;
-				for (int i = 0; i < moment_order.size(); i++)
+				if (moment_order_size == 1)
 				{
-					iter.second.rhs[num_vec].at(deg, 0) += iter_f->second.ucoe_alpt[0].at(deg, moment_order[i]) * moment_order_weight[i];
+					iter.second.rhs[num_vec].at(deg, 0) += iter_f->second.ucoe_alpt[0].at(deg, 0) * moment_order_weight[0];
 				}
+				else if (moment_order_size == 2)
+				{
+					iter.second.rhs[num_vec].at(deg, 0) += iter_f->second.ucoe_alpt[0].at(deg, 0) * (moment_order_weight[0] + 1./2. * moment_order_weight[1])
+														 + iter_f->second.ucoe_alpt[0].at(deg, 1) * 1./(2.*sqrt(3.)) * moment_order_weight[1];
+				}
+				else if (moment_order_size == 3)
+				{
+					iter.second.rhs[num_vec].at(deg, 0) += iter_f->second.ucoe_alpt[0].at(deg, 0) * (moment_order_weight[0] + 1./2. * moment_order_weight[1] + 1./3. * moment_order_weight[2])
+														 + iter_f->second.ucoe_alpt[0].at(deg, 1) * (1./(2.*sqrt(3.)) * moment_order_weight[1] + 1./(2.*sqrt(3.)) * moment_order_weight[2])
+														 + iter_f->second.ucoe_alpt[0].at(deg, 2) * 1./(6.*sqrt(5.)) * moment_order_weight[2];
+				}
+				// for (int i = 0; i < moment_order.size(); i++)
+				// {
+				// 	iter.second.rhs[num_vec].at(deg, 0) += iter_f->second.ucoe_alpt[0].at(deg, moment_order[i]) * moment_order_weight[i];
+				// }
 			}
 		}
 	}

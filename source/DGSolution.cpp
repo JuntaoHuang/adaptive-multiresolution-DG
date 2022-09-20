@@ -126,7 +126,7 @@ std::vector<double> DGSolution::max_abs_value(const std::vector<int> & sample_ma
 		num_grid_point[d] = pow_int(2, sample_max_mesh_level[d]) + 1;
 		dx[d] = 1./num_grid_point[d];
 	}
-	    
+
 	std::vector<double> max_abs_solution(VEC_NUM, 0.);
 	const std::vector<int> zero_derivative(DIM, 0);
 	
@@ -1100,6 +1100,17 @@ void DGSolution::copy_ucoe_ut_to_ucoe()
 		for (size_t i = 0; i < VEC_NUM; i++)
 		{
 			iter.second.ucoe_alpt[i] = iter.second.ucoe_ut[i];
+		}
+	}
+}
+
+void DGSolution::copy_rhs_to_ucoe()
+{
+	for (auto & iter : dg)
+	{
+		for (size_t i = 0; i < VEC_NUM; i++)
+		{
+			iter.second.ucoe_alpt[i] = iter.second.rhs[i];
 		}
 	}
 }
