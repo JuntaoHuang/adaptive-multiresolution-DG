@@ -115,6 +115,38 @@ DGSolution::DGSolution(const bool sparse_, const int level_init_, const int NMAX
 	update_order_all_basis_in_dgmap();
 }
 
+std::vector<double> DGSolution::max_abs_value(const std::vector<int> & sample_max_mesh_level) const
+{	
+	// number of sampling points in each dimension
+	std::vector<int> num_grid_point(DIM, 0);
+	std::vector<double> dx(DIM, 0.);
+	for (int d = 0; d < DIM; d++)
+	{ 
+		// here we use +1 to avoid sampling points in the cell interfaces
+		num_grid_point[d] = pow_int(2, sample_max_mesh_level[d]) + 1;
+		dx[d] = 1./num_grid_point[d];
+	}
+	    
+	std::vector<double> max_abs_solution(VEC_NUM, 0.);
+	const std::vector<int> zero_derivative(DIM, 0);
+	
+	std::vector<std::vector<int>> narray;	
+	IterativeNestedLoop(narray, DIM, num_grid_point);
+	for (auto const & n : narray)
+	{
+		std::vector<double> x(DIM, 0.);
+		for (int d = 0; d < DIM; d++) { x[d] = dx[d] * (n[d] + 0.5); }
+
+		std::vector<double> value = this->val(x, zero_derivative);
+		for (int vec = 0; vec < VEC_NUM; vec++)
+		{
+			max_abs_solution[vec] = std::max(std::abs(max_abs_solution[vec]), std::abs(value[vec]));
+		}
+	}
+
+	return max_abs_solution;
+}
+
 VecMultiD<double> DGSolution::seperable_project(std::function<double(double, int)> func) const
 {
 	const std::vector<int> size_coeff{DIM, all_bas.size()};

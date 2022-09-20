@@ -42,6 +42,9 @@ public:
 	/// return maximum mesh level we set initially
 	int nmax_level() const { return NMAX; };
 
+	// return maximum absolute value of the solution with sampling points from a given maximum mesh level
+	std::vector<double> max_abs_value(const std::vector<int> & sample_max_mesh_level) const;
+	
 	// ------------------------------------------------------------------------
 	// pointers to elements when computing DG operator
 	// ------------------------------------------------------------------------
