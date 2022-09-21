@@ -78,6 +78,10 @@ int main(int argc, char *argv[])
 
 	// num of gauss points in computing error
 	int num_gauss_pt_compute_error = 3;
+	
+	// problem 1: Landau damping
+	// problem 2: two-stream instability
+	int prob_num = 2;
 
 	OptionsParser args(argc, argv);
 	args.AddOption(&NMAX, "-NM", "--max-mesh-level", "Maximum mesh level");
@@ -122,12 +126,14 @@ int main(int argc, char *argv[])
 	OperatorMatrix1D<HermBasis, HermBasis> oper_matx_herm_herm(all_bas_herm, all_bas_herm, boundary_type);
 	OperatorMatrix1D<LagrBasis, LagrBasis> oper_matx_lagr_lagr(all_bas_lagr, all_bas_lagr, boundary_type);
 
-	// rescaling parameters for Landau damping
+	// rescaling parameters
 	// rescale the domain x in [0, L] and v in [-Vc, Vc] to (x, v) in [0, 1]^2
-	const double const_L = 4*Const::PI;
-	const double const_A = 0.5;
-	const double const_k = 0.5;
-	const double const_Vc = 2*Const::PI;
+	double const_L = 4*Const::PI;	
+	double const_k = 0.5;
+	double const_Vc = 2*Const::PI;
+	double const_A = 0.;
+	if (prob_num == 1) { const_A = 0.5; }
+	else if (prob_num == 2) { const_A = 0.05; }
 
 	// initialization of DG solution (distribution function f)
 	DGAdaptIntp dg_f(sparse, N_init, NMAX, all_bas_alpt, all_bas_lagr, all_bas_herm, hash, refine_eps, coarsen_eta, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp, oper_matx_lagr_lagr, oper_matx_herm_herm);
@@ -137,8 +143,21 @@ int main(int argc, char *argv[])
 	// f_M(v) = 1/sqrt(2*pi) * exp(-v^2/2)
 	auto init_func_1 = [&](double x, int d)
 	{
-		if (d == 0) { return 1. + const_A * cos(const_k * (const_L * x)); }
-		else { return 1./sqrt(2.*Const::PI) * exp(- (const_Vc*(2*x-1)) * (const_Vc*(2*x-1)) / 2.); }
+		if (d == 0) 
+		{ 
+			return 1. + const_A * cos(const_k * (const_L * x)); 
+		}
+		else
+		{
+			if (prob_num == 1)
+			{
+				return 1./sqrt(2.*Const::PI) * exp(- (const_Vc*(2*x-1)) * (const_Vc*(2*x-1)) / 2.);
+			}
+			else if (prob_num == 2)
+			{
+				return 1./sqrt(2.*Const::PI) * (const_Vc*(2*x-1)) * (const_Vc*(2*x-1)) * exp(- (const_Vc*(2*x-1)) * (const_Vc*(2*x-1)) / 2.);
+			}			
+		}
 	};
 	std::vector<std::function<double(double, int)>> init_func{init_func_1};
 	dg_f.init_separable_scalar_sum(init_func);
