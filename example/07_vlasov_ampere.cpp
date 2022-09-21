@@ -149,7 +149,11 @@ int main(int argc, char *argv[])
 	DGAdapt dg_E(sparse_E, N_init, NMAX, auxiliary_dim, all_bas_alpt, all_bas_lagr, all_bas_herm, hash, refine_eps, coarsen_eta, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp);
 	
 	// initial condition for E
-	auto init_func_E = [](double x, int d) { return 0.; };
+	auto init_func_E = [&](double x, int d)
+	{
+		if (d == 0) { return const_A/const_k * sin(const_k * (const_L * x)); }
+		else { return 1.; }
+	};
 	dg_E.init_separable_scalar(init_func_E);
 	
 	// ------------------------------
@@ -173,7 +177,7 @@ int main(int argc, char *argv[])
 		double max_abs_E = dg_E.max_abs_value(sample_max_mesh_level)[0];
 
 		// wave speed in x and v direction
-		const std::vector<double> wave_speed{1./const_L, max_abs_E/(2.*const_Vc)};
+		const std::vector<double> wave_speed{const_Vc/const_L, max_abs_E/(2.*const_Vc)};
 
 		// constant in global Lax-Friedrich flux	
 		const std::vector<double> lxf_alpha{1.1*wave_speed[0], 1.1*wave_speed[1]};
@@ -219,7 +223,7 @@ int main(int argc, char *argv[])
 			const std::vector<int> zero_derivative(DIM, 0);
             auto coe_func = [&](std::vector<double> x, int d) -> double 
             {
-                if (d==0) { return x[1]/const_L; }
+                if (d==0) { return const_Vc*(2*x[1] - 1.)/const_L; }
                 else { return dg_E.val(x, zero_derivative)[0]/(2.*const_Vc); }
             };
             interp.var_coeff_u_Lagr_fast(coe_func, is_intp, fast_lagr_intp);
@@ -240,8 +244,8 @@ int main(int argc, char *argv[])
 			// --- step 2: update RHS for E ---
 			dg_E.set_rhs_zero();
 
-			const std::vector<int> moment_order{0};
-			const std::vector<double> moment_order_weight{-2.*const_Vc};
+			const std::vector<int> moment_order{0, 1};
+			const std::vector<double> moment_order_weight{2.*const_Vc*const_Vc, -4.*const_Vc*const_Vc};
 			const int num_vec = 0;
 			dg_E.compute_moment_full_grid(dg_f, moment_order, moment_order_weight, num_vec);
 
@@ -267,7 +271,8 @@ int main(int argc, char *argv[])
 			record_time.time("running time");
 			std::cout << "num of time steps: " << num_time_step 
 					<< "; time step: " << dt 
-					<< "; curr time: " << curr_time << std::endl
+					<< "; curr time: " << curr_time 
+					<< "; max abs value of E: " << max_abs_E << std::endl
 					<< std::endl << std::endl;
 		}		
 	}
@@ -282,6 +287,10 @@ int main(int argc, char *argv[])
 	const std::string file_name = "f_N" + std::to_string(NMAX) + "_tf" + std::to_string(final_time) + ".txt";
 	IO inout(dg_f);
 	inout.output_num(file_name);
+
+	const std::string file_name_E = "E_N" + std::to_string(NMAX) + "_tf" + std::to_string(final_time) + ".txt";
+	IO inout_E(dg_E);
+	inout_E.output_num(file_name_E);
 
 	return 0;
 }
