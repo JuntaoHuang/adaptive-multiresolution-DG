@@ -62,6 +62,10 @@ class LagrInterpolation:
 		void var_coeff_u_Lagr_fast(std::function<double(std::vector<double>, int)> coefficient_func, 
 		                           std::vector< std::vector<bool> > is_intp, FastLagrIntp & fastLagr);
 
+		// this function will compute interpolation for 1D1V Vlasov equation, e.g. f_t + v * f_x + E * f_v = 0
+		// compute interpolation basis of v * f in the first dimension and E * f in the second dimension
+		void interp_Vlasov_1D1V(DGSolution & E, FastLagrIntp & fastLagr_f, FastLagrIntp & fastLagr_E);
+
 		// Lagrange interpolation for a given function func(u), u is linear combination of Alpert basis
 		// this will update VecMultiD<double> fp_intp in class Element
 		void nonlinear_Lagr(std::function<double(std::vector<double>, int, int)> func, std::vector< std::vector<bool> > is_intp);

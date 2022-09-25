@@ -935,6 +935,52 @@ int DGSolution::max_mesh_level() const
 	return mesh_level;
 }
 
+void DGSolution::copy_ucoe_alpt_to_f(DGSolution & E, const std::vector<int> & num_vec_f, const std::vector<int> & num_vec_E)
+{
+	// check size of copy number of vector are the same for f and E
+	assert(num_vec_f.size() == num_vec_E.size());
+	const int copy_num_vec_size = num_vec_f.size();
+
+	assert(DIM == 2);	// this does not work for velocity dim != 1
+
+	// loop over all the elements in f
+	for (auto & iter_f : this->dg)
+	{
+		const std::vector<int> & level_f = iter_f.second.level;
+		
+		if (level_f[1] != 0)
+		{
+			for (int i = 0; i < VEC_NUM; i++)
+			{
+				iter_f.second.ucoe_alpt[i] = 0.;
+			}
+		}
+		else
+		{		
+			// index (including mesh level and support index)
+			const std::array<std::vector<int>,2> & index_f = {iter_f.second.level, iter_f.second.suppt};
+
+			// compute hash key of the element in f and find it in E
+			int hash_key_f = hash.hash_key(index_f);
+			auto iter_E = E.dg.find(hash_key_f);
+		
+			// if the corresponding element is in f dg solution
+			// then copy point value of E to f
+			if (iter_E != E.dg.end())
+			{
+				for(int i = 0; i < copy_num_vec_size; i++)
+				{
+					iter_f.second.ucoe_alpt[num_vec_f[i]] = iter_E->second.ucoe_alpt[num_vec_E[i]];
+				}
+			}
+			else
+			{
+				std::cout << "error: not find element in E" << std::endl; exit(1);
+			}
+		}
+	}
+}
+
 void DGSolution::set_rhs_zero()
 {
 	for (auto & iter : dg)
@@ -1011,6 +1057,61 @@ void DGSolution::copy_predict_to_ucoe()
 		for (size_t i = 0; i < VEC_NUM; i++)
 		{
 			iter.second.ucoe_alpt[i] = iter.second.ucoe_alpt_predict[i];
+		}
+	}
+}
+
+
+void DGSolution::copy_ucoe_to_other()
+{
+	for (auto & iter : dg)
+	{
+		for (size_t i = 0; i < VEC_NUM; i++)
+		{
+			iter.second.ucoe_alpt_other[i] = iter.second.ucoe_alpt[i];
+		}
+	}
+}
+
+void DGSolution::copy_up_intp_to_other()
+{
+	for (auto & iter : dg)
+	{
+		for (size_t i = 0; i < VEC_NUM; i++)
+		{
+			iter.second.up_intp_other[i] = iter.second.up_intp[i];
+		}
+	}
+}
+
+void DGSolution::exchange_ucoe_and_other()
+{
+	// VecMultiD<double> scalar_ucoe_alpt(DIM, PMAX_alpt+1);
+	VecMultiD<double> scalar_ucoe_alpt = dg.begin()->second.ucoe_alpt[0];
+
+	for (auto & iter : dg)
+	{
+		for (size_t i = 0; i < VEC_NUM; i++)
+		{	
+			scalar_ucoe_alpt = iter.second.ucoe_alpt[i];
+			iter.second.ucoe_alpt[i] = iter.second.ucoe_alpt_other[i];
+			iter.second.ucoe_alpt_other[i] = scalar_ucoe_alpt;
+		}
+	}
+}
+
+void DGSolution::exchange_up_intp_and_other()
+{
+	// VecMultiD<double> scalar_up_intp(DIM, PMAX_intp+1);
+	VecMultiD<double> scalar_up_intp = dg.begin()->second.up_intp[0];
+
+	for (auto & iter : dg)
+	{
+		for (size_t i = 0; i < VEC_NUM; i++)
+		{	
+			scalar_up_intp = iter.second.up_intp[i];
+			iter.second.up_intp[i] = iter.second.up_intp_other[i];
+			iter.second.up_intp_other[i] = scalar_up_intp;
 		}
 	}
 }

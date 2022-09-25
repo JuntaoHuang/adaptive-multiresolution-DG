@@ -162,8 +162,9 @@ int main(int argc, char *argv[])
 
 	// fast Lagrange interpolation
     LagrInterpolation interp_lagr(dg_f);
-	FastLagrIntp fast_lagr_intp(dg_f, interp_lagr.Lag_pt_Alpt_1D, interp_lagr.Lag_pt_Alpt_1D_d1);
-
+	FastLagrIntp fast_lagr_intp_f(dg_f, interp_lagr.Lag_pt_Alpt_1D, interp_lagr.Lag_pt_Alpt_1D_d1);
+	FastLagrIntp fast_lagr_intp_E(dg_E, interp_lagr.Lag_pt_Alpt_1D, interp_lagr.Lag_pt_Alpt_1D_d1);
+	
 	// constant in global Lax-Friedrich flux	
 	const double lxf_alpha = 1.;
 	// wave speed in x and y direction
@@ -217,16 +218,17 @@ int main(int argc, char *argv[])
             std::vector< std::vector<bool> > is_intp;
             is_intp.push_back(std::vector<bool>(DIM, true));
             
-            // f = f(x, v, t) in 1D1V
-            // interpolation for v * f and E * f
-			// f_t + v * f_x + E * f_v = 0
-			const std::vector<int> zero_derivative(DIM, 0);
-            auto coe_func = [&](std::vector<double> x, int d) -> double 
-            {
-                if (d==0) { return x[1]; }
-                else { return dg_E.val(x, zero_derivative)[0]; }
-            };
-            interp.var_coeff_u_Lagr_fast(coe_func, is_intp, fast_lagr_intp);
+            // // f = f(x, v, t) in 1D1V
+            // // interpolation for v * f and E * f
+			// // f_t + v * f_x + E * f_v = 0
+			// const std::vector<int> zero_derivative(DIM, 0);
+            // auto coe_func = [&](std::vector<double> x, int d) -> double 
+            // {
+            //     if (d==0) { return x[1]; }
+            //     else { return dg_E.val(x, zero_derivative)[0]; }
+            // };
+			// interp.var_coeff_u_Lagr_fast(coe_func, is_intp, fast_lagr_intp_f);
+			interp.interp_Vlasov_1D1V(dg_E, fast_lagr_intp_f, fast_lagr_intp_E);
 
             // calculate rhs and update Element::ucoe_alpt
             dg_f.set_rhs_zero();

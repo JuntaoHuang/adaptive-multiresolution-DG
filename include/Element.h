@@ -117,6 +117,11 @@ public:
 	std::vector< VecMultiD<std::vector<double> > > ucoe_intp_inter;
 	/// values of u at interpolation points
 	std::vector< VecMultiD<double> > up_intp;
+
+	/// coefficients of Alpert basis for other dg solutions (e.g. E and B in Vlasov-Maxwell system)
+	std::vector< VecMultiD<double> > ucoe_alpt_other;
+	/// values at interpolation points for other dg solutions (e.g. E and B in Vlasov-Maxwell system)
+	std::vector< VecMultiD<double> > up_intp_other;
 		
 	// ------------------------------------------------------------------------------------------------------------------------
 	// 

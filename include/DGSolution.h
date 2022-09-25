@@ -128,6 +128,9 @@ public:
 	int get_dof() const;			///< dof is defined as size_basis_alpt() * (size of ind_var_vec)
 	void print_rhs() const;
 
+	// copy Element::ucoe_alpt in dg_E to Element::ucoe_alpt in dg_f
+	void copy_ucoe_alpt_to_f(DGSolution & E, const std::vector<int> & num_vec_f, const std::vector<int> & num_vec_E);
+
 	// ------------------------------------------------------------------------
 	// copy or set zero to coefficients in all the elements
 	// ------------------------------------------------------------------------
@@ -148,6 +151,18 @@ public:
 
 	/// copy Element::ucoe_alpt_predict to Element::ucoe_alpt
 	void copy_predict_to_ucoe();
+
+	/// copy Element::ucoe_alpt to Element::ucoe_alpt_other
+	void copy_ucoe_to_other();
+
+	/// copy Element::up_intp to Element::up_intp_other
+	void copy_up_intp_to_other();
+
+	/// exchange Element::ucoe_alpt and Element::ucoe_alpt_other
+	void exchange_ucoe_and_other();
+
+	/// exchange Element::up_intp and Element::up_intp_other
+	void exchange_up_intp_and_other();
 
 	/// copy Element::ucoe_ut to Element::ucoe_ut_predict
 	void copy_ucoe_ut_to_predict();
