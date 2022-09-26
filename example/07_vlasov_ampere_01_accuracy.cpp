@@ -158,13 +158,13 @@ int main(int argc, char *argv[])
 	dg_E.init_separable_scalar(init_func_E);
 	
 	// ------------------------------
-	HyperbolicDiffFluxLagrRHS fast_rhs_lagr(dg_f, oper_matx_lagr);		
+	HyperbolicLagrRHS fast_rhs_lagr(dg_f, oper_matx_lagr);
 
 	// fast Lagrange interpolation
     LagrInterpolation interp_lagr(dg_f);
 	FastLagrIntp fast_lagr_intp_f(dg_f, interp_lagr.Lag_pt_Alpt_1D, interp_lagr.Lag_pt_Alpt_1D_d1);
 	FastLagrIntp fast_lagr_intp_E(dg_E, interp_lagr.Lag_pt_Alpt_1D, interp_lagr.Lag_pt_Alpt_1D_d1);
-	
+
 	// constant in global Lax-Friedrich flux	
 	const double lxf_alpha = 1.;
 	// wave speed in x and y direction
@@ -237,8 +237,8 @@ int main(int argc, char *argv[])
             // calculate rhs and update Element::ucoe_alpt
             dg_f.set_rhs_zero();
 
-            fast_rhs_lagr.rhs_vol_scalar();
-            fast_rhs_lagr.rhs_flx_intp_scalar();
+			fast_rhs_lagr.rhs_vol_scalar();
+			fast_rhs_lagr.rhs_flx_intp_scalar();
 
             // add to rhs in odeSolver_f
             odeSolver_f.set_rhs_zero();

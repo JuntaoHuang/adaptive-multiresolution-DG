@@ -492,6 +492,29 @@ private:
     OperatorMatrix1D<LagrBasis, AlptBasis>* const oper_matx_lagr_ptr;
 };
 
+/**
+ * @brief Fast algorithm for computing rhs for scalar hyperbolic equation in arbitrary dimension using Lagrange interpolation basis
+ * 
+ */
+class HyperbolicLagrRHS:
+    public FastRHS
+{
+public:
+    HyperbolicLagrRHS(DGSolution & dgsolution, OperatorMatrix1D<LagrBasis, AlptBasis> & oper_matx_lagr): 
+        FastRHS(dgsolution), oper_matx_lagr_ptr(&oper_matx_lagr) {};
+    ~HyperbolicLagrRHS() {};
+
+    // volume integral
+    void rhs_vol_scalar();
+
+    // flux integral on interpolation part
+    void rhs_flx_intp_scalar();
+
+private:
+    OperatorMatrix1D<LagrBasis, AlptBasis>* const oper_matx_lagr_ptr;
+};
+
+
 // compute source term (given by Lagrange interpolation basis) using fast algorithm
 class SourceFastLagr:
     public FastRHS
