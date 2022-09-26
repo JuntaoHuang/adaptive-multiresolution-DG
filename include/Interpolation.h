@@ -66,6 +66,11 @@ class LagrInterpolation:
 		// compute interpolation basis of v * f in the first dimension and E * f in the second dimension
 		void interp_Vlasov_1D1V(DGSolution & E, FastLagrIntp & fastLagr_f, FastLagrIntp & fastLagr_E);
 
+		// overload for rescaled 1D1V Vlasov equation
+		// this function will compute interpolation for 1D1V Vlasov equation, e.g. f_t + coe_v * f_x + coe_E * f_v = 0
+		// compute interpolation basis of coe_v * f in the first dimension and coe_E * f in the second dimension
+		void interp_Vlasov_1D1V(DGSolution & E, std::function<double(double)> coe_v, std::function<double(double)> coe_E, FastLagrIntp & fastLagr_f, FastLagrIntp & fastLagr_E);
+
 		// Lagrange interpolation for a given function func(u), u is linear combination of Alpert basis
 		// this will update VecMultiD<double> fp_intp in class Element
 		void nonlinear_Lagr(std::function<double(std::vector<double>, int, int)> func, std::vector< std::vector<bool> > is_intp);

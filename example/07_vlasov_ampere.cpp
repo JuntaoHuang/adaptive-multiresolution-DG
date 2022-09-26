@@ -180,7 +180,8 @@ int main(int argc, char *argv[])
 
 	// fast Lagrange interpolation
     LagrInterpolation interp_lagr(dg_f);
-	FastLagrIntp fast_lagr_intp(dg_f, interp_lagr.Lag_pt_Alpt_1D, interp_lagr.Lag_pt_Alpt_1D_d1);
+	FastLagrIntp fast_lagr_intp_f(dg_f, interp_lagr.Lag_pt_Alpt_1D, interp_lagr.Lag_pt_Alpt_1D_d1);
+	FastLagrIntp fast_lagr_intp_E(dg_E, interp_lagr.Lag_pt_Alpt_1D, interp_lagr.Lag_pt_Alpt_1D_d1);
 
 	// begin time evolution
 	std::cout << "--- evolution started ---" << std::endl;
@@ -236,16 +237,19 @@ int main(int argc, char *argv[])
             std::vector< std::vector<bool> > is_intp;
             is_intp.push_back(std::vector<bool>(DIM, true));
             
-            // f = f(x, v, t) in 1D1V
-            // interpolation for v * f and E * f
-			// f_t + v * f_x + E * f_v = 0
-			const std::vector<int> zero_derivative(DIM, 0);
-            auto coe_func = [&](std::vector<double> x, int d) -> double 
-            {
-                if (d==0) { return const_Vc*(2*x[1] - 1.)/const_L; }
-                else { return dg_E.val(x, zero_derivative)[0]/(2.*const_Vc); }
-            };
-            interp.var_coeff_u_Lagr_fast(coe_func, is_intp, fast_lagr_intp);
+            // // f = f(x, v, t) in 1D1V
+            // // interpolation for v * f and E * f
+			// // f_t + v * f_x + E * f_v = 0
+			// const std::vector<int> zero_derivative(DIM, 0);
+            // auto coe_func = [&](std::vector<double> x, int d) -> double 
+            // {
+            //     if (d==0) { return const_Vc*(2*x[1] - 1.)/const_L; }
+            //     else { return dg_E.val(x, zero_derivative)[0]/(2.*const_Vc); }
+            // };
+            // interp.var_coeff_u_Lagr_fast(coe_func, is_intp, fast_lagr_intp_f);
+			auto coe_v = [&](double v) -> double { return const_Vc*(2*v - 1.)/const_L; };
+			auto coe_E = [&](double E) -> double { return E/(2.*const_Vc); };
+			interp.interp_Vlasov_1D1V(dg_E, coe_v, coe_E, fast_lagr_intp_f, fast_lagr_intp_E);
 
             // calculate rhs and update Element::ucoe_alpt
             dg_f.set_rhs_zero();
@@ -303,6 +307,13 @@ int main(int argc, char *argv[])
 			<< "; num of basis: " << dg_f.size_basis_alpt() << std::endl;
 
 	// output f
+	// // validate the correctness at a given point
+	// std::vector<double> x{0.1, 0.2};
+	// std::vector<int> zero_derivative{0, 0};
+	// std::vector<double> val_f = dg_f.val(x, zero_derivative);
+	// for (auto v : val_f) { std::cout << v << std::endl; }
+	// val_f = dg_E.val(x, zero_derivative);
+	// for (auto v : val_f) { std::cout << v << std::endl; }	
 	const std::string file_name = "f_N" + std::to_string(NMAX) + "_tf" + std::to_string(final_time) + ".txt";
 	IO inout(dg_f);
 	inout.output_num(file_name);

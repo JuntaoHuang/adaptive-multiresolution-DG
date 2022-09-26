@@ -4258,6 +4258,73 @@ void LagrInterpolation::interp_Vlasov_1D1V(DGSolution & E, FastLagrIntp & fastLa
 	eval_fp_to_coe_D_Lag(is_intp);
 }
 
+
+void LagrInterpolation::interp_Vlasov_1D1V(DGSolution & E, std::function<double(double)> coe_v, std::function<double(double)> coe_E, FastLagrIntp & fastLagr_f, FastLagrIntp & fastLagr_E)
+{
+	// step 1: fast transform, f alpert coefficients -> point values (store in Element::up_intp in f)
+	fastLagr_f.eval_up_Lagr();
+
+	// step 2: copy Element::ucoe_alpt in f to Element::ucoe_alpt_other in f
+	dgsolution_ptr->copy_ucoe_to_other();
+
+	// step 3: copy Element::up_intp in f to Element::up_intp_other in f
+	dgsolution_ptr->copy_up_intp_to_other();
+
+	// step 4: copy E alpert coefficients to f (store in Element::ucoe_alpt in f)
+	const std::vector<int> num_vec_f{0};
+	const std::vector<int> num_vec_E{0};
+	dgsolution_ptr->copy_ucoe_alpt_to_f(E, num_vec_f, num_vec_E);
+	
+	// step 5: fast transform, f alpert coefficients -> point values (this is actually point value for E)
+	fastLagr_f.eval_up_Lagr();
+
+	// step 6:  exchange Element::ucoe_alpt in f and Element::ucoe_alpt_other in f
+	// 			exchange Element::up_intp in f and Element::up_intp_other in f
+	dgsolution_ptr->exchange_ucoe_and_other();
+	dgsolution_ptr->exchange_up_intp_and_other();
+
+	// step 7: compute v * f and E * f point value
+	for (auto it = dgsolution_ptr->dg.begin(); it != dgsolution_ptr->dg.end(); it++)
+	{
+		const std::vector<int> & l = it->second.level;
+		const std::vector<int> & j = it->second.suppt;
+
+		std::vector<std::vector<int>> & order = it->second.order_local_intp;
+
+		std::vector< VecMultiD<double> > & up = it->second.up_intp;
+		std::vector< VecMultiD<double> > & up_other = it->second.up_intp_other;
+		std::vector< std::vector< VecMultiD<double> > > & fp = it->second.fp_intp;
+
+		std::vector<double> pos(DIM);
+		std::vector<int> p(DIM);
+
+		for (auto it0 = order.begin(); it0 != order.end(); it0++)
+		{
+			for (int d = 0; d < DIM; d++)
+			{
+				p[d] = (*it0)[d];	// polynomial degree of interpolation basis
+				pos[d] = dgsolution_ptr->all_bas_Lag.at(l[d], j[d], p[d]).intep_pt;	// coordinate of interpolation point
+			}
+
+			for (int i = 0; i < VEC_NUM; i++)
+			{
+				// dimension 0: v * f
+				int d = 0;
+				fp[i][d].at(*it0) = coe_v(pos[1]) * up[i].at(*it0);
+				
+				// dimension 1: E * f
+				d = 1;
+				fp[i][d].at(*it0) = coe_E(up_other[i].at(*it0)) * up[i].at(*it0);
+			}
+		}
+	}
+
+	// step 8: transform point value to interpolation coefficients
+	std::vector< std::vector<bool> > is_intp;
+	is_intp.push_back(std::vector<bool>(DIM, true));
+	eval_fp_to_coe_D_Lag(is_intp);
+}
+
 void HermInterpolation::nonlinear_Herm_1D(std::function<double(std::vector<double>, int, int)> func,
 	std::function<double(std::vector<double>, int, int, int)> func_d1,
 	std::vector< std::vector<bool> > is_intp)
