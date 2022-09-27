@@ -19,7 +19,8 @@
 #include "subs.h"
 #include "VecMultiD.h"
 
-// solve linear hyperbolic system with constant coefficients
+
+// this example solve linear hyperbolic system with constant coefficients
 int main(int argc, char *argv[])
 {
 	// static variables
@@ -131,22 +132,23 @@ int main(int argc, char *argv[])
 	int total_time_step = ceil(final_time / dt) + 1;
 	dt = final_time / total_time_step;
 
-	const auto lxf_alpha = hyperbolicConst;
 	HyperbolicAlpt linear(dg_solu, oper_matx_alpt);
 
-	// lax-Friedrichs flux
-	linear.assemble_matrix_flx_system(0, -1, lxf_alpha[0], 0.5);
-	linear.assemble_matrix_flx_system(0, 1, lxf_alpha[0], 0.5);
-	linear.assemble_matrix_flx_system(1, -1, lxf_alpha[1], 0.5);
-	linear.assemble_matrix_flx_system(1, 1, lxf_alpha[1], 0.5);
+	// volume integral
+	linear.assemble_matrix_vol_system(0, hyperbolicConst[0]);
+	linear.assemble_matrix_vol_system(1, hyperbolicConst[1]);
 
+	// flux integral
+	linear.assemble_matrix_flx_system(0, -1, hyperbolicConst[0], 0.5);
+	linear.assemble_matrix_flx_system(0, 1,  hyperbolicConst[0], 0.5);
+	linear.assemble_matrix_flx_system(1, -1, hyperbolicConst[1], 0.5);
+	linear.assemble_matrix_flx_system(1, 1,  hyperbolicConst[1], 0.5);
+
+	// flux integral (from penalty in Lax-Friedrich flux)
 	linear.assemble_matrix_flx_system(0, -1, {1, 1}, 0.5);
-	linear.assemble_matrix_flx_system(0, 1, {1, 1}, -0.5);
+	linear.assemble_matrix_flx_system(0, 1,  {1, 1}, -0.5);
 	linear.assemble_matrix_flx_system(1, -1, {1, 1}, 0.5);
-	linear.assemble_matrix_flx_system(1, 1, {1, 1}, -0.5);
-
-	linear.assemble_matrix_vol_system(0, lxf_alpha[0]);
-	linear.assemble_matrix_vol_system(1, lxf_alpha[1]);
+	linear.assemble_matrix_flx_system(1, 1,  {1, 1}, -0.5);
 
 	RK3SSP odesolver(linear, dt);
 	odesolver.init();
