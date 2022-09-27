@@ -232,7 +232,7 @@ int main(int argc, char *argv[])
 			// interp.interp_Vlasov_1D1V(dg_E, fast_lagr_intp_f, fast_lagr_intp_E);
 			auto coe_v = [&](double v) -> double { return v; };
 			auto coe_E = [&](double E) -> double { return E; };
-			interp.interp_Vlasov_1D1V(dg_E, coe_v, coe_E, fast_lagr_intp_f, fast_lagr_intp_E);			
+			interp.interp_Vlasov_1D1V(dg_E, coe_v, coe_E, fast_lagr_intp_f, fast_lagr_intp_E);
 
             // calculate rhs and update Element::ucoe_alpt
             dg_f.set_rhs_zero();

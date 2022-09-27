@@ -935,20 +935,23 @@ int DGSolution::max_mesh_level() const
 	return mesh_level;
 }
 
-void DGSolution::copy_ucoe_alpt_to_f(DGSolution & E, const std::vector<int> & num_vec_f, const std::vector<int> & num_vec_E)
+void DGSolution::copy_ucoe_alpt_to_f(DGSolution & E, const std::vector<int> & num_vec_f, const std::vector<int> & num_vec_E, const std::vector<int> & vel_dim_f)
 {
 	// check size of copy number of vector are the same for f and E
 	assert(num_vec_f.size() == num_vec_E.size());
 	const int copy_num_vec_size = num_vec_f.size();
-
-	assert(DIM == 2);	// this does not work for velocity dim != 1
 
 	// loop over all the elements in f
 	for (auto & iter_f : this->dg)
 	{
 		const std::vector<int> & level_f = iter_f.second.level;
 		
-		if (level_f[1] != 0)
+		// sum of level of f in all the velocity dimensions
+		int sum_level_f_in_vel_dim = 0;
+		for (auto const vd : vel_dim_f) { sum_level_f_in_vel_dim += level_f[vd]; }
+
+		// if sum is not zero, then there must be a non-zero index in some velocity dimension
+		if (sum_level_f_in_vel_dim != 0)
 		{
 			for (int i = 0; i < VEC_NUM; i++)
 			{
@@ -975,7 +978,8 @@ void DGSolution::copy_ucoe_alpt_to_f(DGSolution & E, const std::vector<int> & nu
 			}
 			else
 			{
-				std::cout << "error: not find element in E" << std::endl; exit(1);
+				assert("error: not find element in E");
+				exit(1);
 			}
 		}
 	}

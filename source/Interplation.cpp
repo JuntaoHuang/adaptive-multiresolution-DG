@@ -4206,7 +4206,8 @@ void LagrInterpolation::interp_Vlasov_1D1V(DGSolution & E, FastLagrIntp & fastLa
 	// step 4: copy E alpert coefficients to f (store in Element::ucoe_alpt in f)
 	const std::vector<int> num_vec_f{0};
 	const std::vector<int> num_vec_E{0};
-	dgsolution_ptr->copy_ucoe_alpt_to_f(E, num_vec_f, num_vec_E);
+	const std::vector<int> vel_dim_f{1};
+	dgsolution_ptr->copy_ucoe_alpt_to_f(E, num_vec_f, num_vec_E, vel_dim_f);
 	
 	// step 5: fast transform, f alpert coefficients -> point values (this is actually point value for E)
 	fastLagr_f.eval_up_Lagr();
@@ -4273,7 +4274,8 @@ void LagrInterpolation::interp_Vlasov_1D1V(DGSolution & E, std::function<double(
 	// step 4: copy E alpert coefficients to f (store in Element::ucoe_alpt in f)
 	const std::vector<int> num_vec_f{0};
 	const std::vector<int> num_vec_E{0};
-	dgsolution_ptr->copy_ucoe_alpt_to_f(E, num_vec_f, num_vec_E);
+	const std::vector<int> vel_dim_f{1};
+	dgsolution_ptr->copy_ucoe_alpt_to_f(E, num_vec_f, num_vec_E, vel_dim_f);
 	
 	// step 5: fast transform, f alpert coefficients -> point values (this is actually point value for E)
 	fastLagr_f.eval_up_Lagr();
@@ -4324,6 +4326,13 @@ void LagrInterpolation::interp_Vlasov_1D1V(DGSolution & E, std::function<double(
 	is_intp.push_back(std::vector<bool>(DIM, true));
 	eval_fp_to_coe_D_Lag(is_intp);
 }
+
+// f_t + v2 * f_x2 + (E1 + v2 * B3) * f_v1 + (E2 - v1 * B3) * f_v2 = 0
+void LagrInterpolation::interp_Vlasov_1D2V(DGSolution & dg_BE, FastLagrIntp & fastLagr_f, FastLagrIntp & fastLagr_BE)
+{
+	
+}
+
 
 void HermInterpolation::nonlinear_Herm_1D(std::function<double(std::vector<double>, int, int)> func,
 	std::function<double(std::vector<double>, int, int, int)> func_d1,

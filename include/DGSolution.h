@@ -21,7 +21,9 @@ friend class IO;
 public:
 	// sparse: variable control initialization using sparse grid or not
 	DGSolution(const bool sparse_, const int level_init_, const int NMAX_, AllBasis<AlptBasis> & all_bas_, AllBasis<LagrBasis> all_bas_Lag_, AllBasis<HermBasis> all_bas_Her_, Hash & hash_);
-	DGSolution(const bool sparse_, const int level_init_, const int NMAX_, const int auxiliary_dim_, AllBasis<AlptBasis> & all_bas_, AllBasis<LagrBasis> all_bas_Lag_, AllBasis<HermBasis> all_bas_Her_, Hash & hash_);
+	// the first real_dim (= DIM - auxiliary_dim) use full grid, the remaining auxiliary dimension use only zero level grid
+	// this will be used in Vlasov-Maxwell simulation
+	DGSolution(const bool sparse_, const int level_init_, const int NMAX_, const int auxiliary_dim_, AllBasis<AlptBasis> & all_bas_, AllBasis<LagrBasis> all_bas_Lag_, AllBasis<HermBasis> all_bas_Her_, Hash & hash_);	
 	~DGSolution() {};
 
 	static int DIM;
@@ -128,8 +130,15 @@ public:
 	int get_dof() const;			///< dof is defined as size_basis_alpt() * (size of ind_var_vec)
 	void print_rhs() const;
 
-	// copy Element::ucoe_alpt in dg_E to Element::ucoe_alpt in dg_f
-	void copy_ucoe_alpt_to_f(DGSolution & E, const std::vector<int> & num_vec_f, const std::vector<int> & num_vec_E);
+	/**
+	 * @brief copy Element::ucoe_alpt in dg_E to Element::ucoe_alpt in dg_f
+	 * 
+	 * @param E 
+	 * @param num_vec_f 
+	 * @param num_vec_E 
+	 * @param vel_dim_f velocity dimensions in f
+	 */
+	void copy_ucoe_alpt_to_f(DGSolution & E, const std::vector<int> & num_vec_f, const std::vector<int> & num_vec_E, const std::vector<int> & vel_dim_f);
 
 	// ------------------------------------------------------------------------
 	// copy or set zero to coefficients in all the elements
