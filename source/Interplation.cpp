@@ -4330,7 +4330,84 @@ void LagrInterpolation::interp_Vlasov_1D1V(DGSolution & E, std::function<double(
 // f_t + v2 * f_x2 + (E1 + v2 * B3) * f_v1 + (E2 - v1 * B3) * f_v2 = 0
 void LagrInterpolation::interp_Vlasov_1D2V(DGSolution & dg_BE, FastLagrIntp & fastLagr_f, FastLagrIntp & fastLagr_BE)
 {
+	// // step 1: fast transform, f alpert coefficients -> point values (store in Element::up_intp in f)
+	// fastLagr_f.eval_up_Lagr();
+
+	// // step 2: copy Element::ucoe_alpt in f to Element::ucoe_alpt_other in f
+	// dgsolution_ptr->copy_ucoe_to_other();
+
+	// // step 3: copy Element::up_intp in f to Element::up_intp_other in f
+	// dgsolution_ptr->copy_up_intp_to_other();
+
+	// // step 4: copy E alpert coefficients to f (store in Element::ucoe_alpt in f)
+	// const std::vector<int> num_vec_f{0, 1, 2};
+	// const std::vector<int> num_vec_E{0, 1, 2};	// dg_BE = {B3, E1, E2}
+	// const std::vector<int> vel_dim_f{1, 2};
+	// dgsolution_ptr->copy_ucoe_alpt_to_f(dg_BE, num_vec_f, num_vec_E, vel_dim_f);
 	
+	// // step 5: fast transform, f alpert coefficients -> point values (this is actually point value for E)
+	// fastLagr_f.eval_up_Lagr();
+
+	// // step 6:  exchange Element::ucoe_alpt in f and Element::ucoe_alpt_other in f
+	// // 			exchange Element::up_intp in f and Element::up_intp_other in f
+	// dgsolution_ptr->exchange_ucoe_and_other();
+	// dgsolution_ptr->exchange_up_intp_and_other();
+
+	// // step 7: compute v * f and E * f point value
+	// for (auto it = dgsolution_ptr->dg.begin(); it != dgsolution_ptr->dg.end(); it++)
+	// {
+	// 	const std::vector<int> & l = it->second.level;
+	// 	const std::vector<int> & j = it->second.suppt;
+
+	// 	std::vector<std::vector<int>> & order = it->second.order_local_intp;
+
+	// 	std::vector< VecMultiD<double> > & up = it->second.up_intp;
+	// 	std::vector< VecMultiD<double> > & up_other = it->second.up_intp_other;
+	// 	std::vector< std::vector< VecMultiD<double> > > & fp = it->second.fp_intp;
+
+	// 	std::vector<double> pos(DIM);
+	// 	std::vector<int> p(DIM);
+
+	// 	for (auto it0 = order.begin(); it0 != order.end(); it0++)
+	// 	{
+	// 		for (int d = 0; d < DIM; d++)
+	// 		{
+	// 			p[d] = (*it0)[d];	// polynomial degree of interpolation basis
+	// 			pos[d] = dgsolution_ptr->all_bas_Lag.at(l[d], j[d], p[d]).intep_pt;	// coordinate of interpolation point
+	// 		}
+
+	// 		// f_t + v2 * f_x2 + (E1 + v2 * B3) * f_v1 + (E2 - v1 * B3) * f_v2 = 0
+			
+	// 		// pos = (x2, v1, v2)
+	// 		double x2 = pos[0]; double v1 = pos[1]; double v2 = pos[2];
+			
+	// 		double f = up[0].at(*it0);
+
+	// 		// dg_BE = {B3, E1, E2}
+	// 		double B3 = up_other[0].at(*it0);
+	// 		double E1 = up_other[1].at(*it0);
+	// 		double E2 = up_other[2].at(*it0);
+
+	// 		// dimension 0: v2 * f
+	// 		int d = 0;
+	// 		fp[0][d].at(*it0) = v2 * f;
+			
+	// 		// dimension 1: (E1 + v2 * B3) * f
+	// 		d = 1;
+	// 		fp[0][d].at(*it0) = (E1 + v2 * B3) * f;
+
+	// 		// dimension 2: (E2 - v1 * B3) * f
+	// 		d = 2;
+	// 		fp[0][d].at(*it0) = (E2 - v1 * B3) * f;
+	// 	}
+	// }
+
+	// // step 8: transform point value to interpolation coefficients
+	// std::vector< std::vector<bool> > is_intp;
+	// is_intp.push_back(std::vector<bool>(DIM, true));	// interpolation for the 1st vec_num in all dimensions
+	// is_intp.push_back(std::vector<bool>(DIM, false));	// no interpolation for the 2nd vec_num in all dimensions
+	// is_intp.push_back(std::vector<bool>(DIM, false));	// no interpolation for the 2nd vec_num in all dimensions
+	// eval_fp_to_coe_D_Lag(is_intp);
 }
 
 
