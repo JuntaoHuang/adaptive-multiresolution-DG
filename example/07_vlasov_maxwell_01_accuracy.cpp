@@ -126,12 +126,12 @@ int main(int argc, char *argv[])
 	// initialization of DG solution (distribution function f)
 	DGAdaptIntp dg_f(sparse, N_init, NMAX, all_bas_alpt, all_bas_lagr, all_bas_herm, hash, refine_eps, coarsen_eta, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp, oper_matx_lagr_lagr, oper_matx_herm_herm);
 
-	// initial condition for f = f(x, v) = sin(2*pi*(x+v))
+	// initial condition for f
 	auto init_func_1 = [](double x, int d) -> double
 	{
 		if (d == 0) { return sin(2.*Const::PI*x); }
-		else if (d == 1) { return cos(2.*Const::PI*x); }
-		else if (d == 2) { return (cos(2.*Const::PI*x)); }
+		else if (d == 1) { return sin(2.*Const::PI*x); }
+		else if (d == 2) { return cos(2.*Const::PI*x); }
 	};
 	auto init_func_zero = [](double x, int d) { return 0.; };
 	std::vector<std::function<double(double, int)>> init_func_f{init_func_1, init_func_zero, init_func_zero};
@@ -143,10 +143,24 @@ int main(int argc, char *argv[])
 	const bool sparse_E = false;	// use full grid in x
 	DGAdapt dg_BE(sparse_E, N_init, NMAX, auxiliary_dim, all_bas_alpt, all_bas_lagr, all_bas_herm, hash, refine_eps, coarsen_eta, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp);
 	
-	// initial condition for E = cos(2*pi*x)
-	auto init_func_3 = [](double x, int d) { return (d==0) ? (cos(2.*Const::PI*x)) : (1.); };
-	std::vector<std::function<double(double, int)>> init_func_E{init_func_3, init_func_zero, init_func_zero};
-	dg_BE.init_separable_system(init_func_E);
+	// initial condition for (B3, E1, E2)
+	auto init_func_B3 = [](double x, int d) -> double
+	{
+		if (d==0) { return cos(2.*Const::PI*x); }
+		else { return 1.0; }
+	};
+	auto init_func_E1 = [](double x, int d) -> double
+	{
+		if (d==0) { return sin(2.*Const::PI*x); }
+		else { return 1.0; }
+	};
+	auto init_func_E2 = [](double x, int d) -> double
+	{
+		if (d==0) { return cos(4.*Const::PI*x); }
+		else { return 1.0; }
+	};		
+	std::vector<std::function<double(double, int)>> init_func_BE{init_func_B3, init_func_E1, init_func_E2};
+	dg_BE.init_separable_system(init_func_BE);
 	
 	// ------------------------------
 	HyperbolicLagrRHS fast_rhs_lagr(dg_f, oper_matx_lagr);
@@ -157,7 +171,7 @@ int main(int argc, char *argv[])
 	FastLagrIntp fast_lagr_intp_BE(dg_BE, interp_lagr.Lag_pt_Alpt_1D, interp_lagr.Lag_pt_Alpt_1D_d1);
 
 	// constant in global Lax-Friedrich flux	
-	const double lxf_alpha = 1.;
+	const double lxf_alpha = 2.;
 	// wave speed in x and y direction
 	const std::vector<double> wave_speed{1., 1., 1.};
 
@@ -185,18 +199,18 @@ int main(int argc, char *argv[])
 		// linear operator for f
 		HyperbolicAlpt linear(dg_f, oper_matx_alpt);
 		std::vector<std::vector<double>> coefficient_d0 = {{1, 0, 0}, {0, 0, 0}, {0, 0, 0}};
-		std::vector<std::vector<double>> coefficient_d1 = {{0.9, 0, 0}, {0, 0, 0}, {0, 0, 0}};
-		std::vector<std::vector<double>> coefficient_d2 = {{0.88, 0, 0}, {0, 0, 0}, {0, 0, 0}};
+		std::vector<std::vector<double>> coefficient_d1 = {{2, 0, 0}, {0, 0, 0}, {0, 0, 0}};
+		std::vector<std::vector<double>> coefficient_d2 = {{2, 0, 0}, {0, 0, 0}, {0, 0, 0}};
 		std::vector<std::vector<std::vector<double>>> coefficient = {coefficient_d0, coefficient_d1, coefficient_d2};
 
 		for (int d = 0; d < DIM; d++)
 		{
-			// volume integral
-			linear.assemble_matrix_vol_system(d, coefficient[d]);
+			// // volume integral
+			// linear.assemble_matrix_vol_system(d, coefficient[d]);
 
-			// flux integral
-			linear.assemble_matrix_flx_system(d, -1, coefficient[d], 0.5);
-			linear.assemble_matrix_flx_system(d, 1, coefficient[d], 0.5);
+			// // flux integral
+			// linear.assemble_matrix_flx_system(d, -1, coefficient[d], 0.5);
+			// linear.assemble_matrix_flx_system(d, 1, coefficient[d], 0.5);
 
 			// flux integral
 			linear.assemble_matrix_flx_system(d, -1, {1, 0, 0}, lxf_alpha/2);
@@ -213,54 +227,40 @@ int main(int argc, char *argv[])
         {			
 			// --- step 1: update RHS for f ---
             // Lagrange interpolation
-            LagrInterpolation interp(dg_f);
-            // // variable to control which flux need interpolation
-            // // the first index is # of unknown variable, the second one is # of dimension
-            // std::vector< std::vector<bool> > is_intp;
-            // is_intp.push_back(std::vector<bool>(DIM, true));
+            LagrInterpolation interp(dg_f);			
+			interp.interp_Vlasov_1D2V(dg_BE, fast_lagr_intp_f, fast_lagr_intp_BE);
             
-            // // f = f(x, v, t) in 1D1V
-            // // interpolation for v * f and E * f
-			// // f_t + v * f_x + E * f_v = 0
-			// const std::vector<int> zero_derivative(DIM, 0);
-            // auto coe_func = [&](std::vector<double> x, int d) -> double 
-            // {
-            //     if (d==0) { return x[1]; }
-            //     else { return dg_E.val(x, zero_derivative)[0]; }
-            // };
-			// interp.var_coeff_u_Lagr_fast(coe_func, is_intp, fast_lagr_intp_f);
-			
-			// interp.interp_Vlasov_1D1V(dg_E, fast_lagr_intp_f, fast_lagr_intp_E);
-			// auto coe_v = [&](double v) -> double { return v; };
-			// auto coe_E = [&](double E) -> double { return E; };
-			// interp.interp_Vlasov_1D1V(dg_E, coe_v, coe_E, fast_lagr_intp_f, fast_lagr_intp_E);
-			
-			// interp.interp_Vlasov_1D2V(dg_BE, fast_lagr_intp_f, fast_lagr_intp_BE);
-            
-			// calculate rhs and update Element::ucoe_alpt
+			// start computation of rhs
             dg_f.set_rhs_zero();
 
-			// fast_rhs_lagr.rhs_vol_scalar();
-			// fast_rhs_lagr.rhs_flx_intp_scalar();
+			// compute source for f
+			FastLagrInit fastLagr_source(dg_f, oper_matx_lagr);
+			double source_time = curr_time;
+            if (stage == 1) { source_time += dt; }
+            else if (stage == 2) { source_time += dt/2.; }
+			auto source_func = [&](std::vector<double> x, int i)->double
+			{
+				if (i==0)				
+				{				
+					double x2 = x[0]; double v1 = x[1]; double v2 = x[2];
+					double pi = Const::PI; double t = source_time;
+
+					return exp(t)*cos(2*pi*v2)*sin(2*pi*v1)*sin(2*pi*x2) + 2*pi*exp(t)*sin(2*pi*v1)*sin(2*pi*v2)*sin(2*pi*x2)*(v1*cos(2*pi*x2) - 2*pow(cos(2*pi*x2), 2) + 1) + 2*pi*exp(t)*cos(2*pi*v1)*cos(2*pi*v2)*sin(2*pi*x2)*(sin(2*pi*x2) + v2*cos(2*pi*x2)) + 2*v2*pi*exp(t)*cos(2*pi*v2)*cos(2*pi*x2)*sin(2*pi*v1);
+				}
+				else
+				{
+					return 0.; 
+				}
+			};
+			interp.source_from_lagr_to_rhs(source_func, fastLagr_source);
+
+			fast_rhs_lagr.rhs_vol_scalar();
+			fast_rhs_lagr.rhs_flx_intp_scalar();
 
             // add to rhs in odeSolver_f
             odeSolver_f.set_rhs_zero();
             odeSolver_f.add_rhs_to_eigenvec();
             odeSolver_f.add_rhs_matrix(linear);
-
-            // // source term for f
-			// {			
-            // double source_time = curr_time;
-            // if (stage == 1) { source_time += dt; }
-            // else if (stage == 2) { source_time += dt/2.; }
-			// auto source_func = [&](std::vector<double> x, int i)->double
-			// {
-			// 	return (cos(2*(Const::PI)*(source_time + x[1] + x[0]))*(sin(2*(Const::PI)*(source_time + x[0])) - sin(2*(Const::PI)*x[0]) + 4*x[1]*(Const::PI)*(Const::PI) + 4*(Const::PI)*(Const::PI)*cos(2*(Const::PI)*x[0]) + 4*(Const::PI)*(Const::PI)))/(2*(Const::PI));
-			// };
-            // Domain2DIntegral source_operator(dg_f, all_bas_alpt, source_func);
-            // source_operator.assemble_vector();
-            // odeSolver_f.add_rhs_vector(source_operator.vec_b);
-            // }
 
             odeSolver_f.step_stage(stage);
 			
@@ -294,7 +294,7 @@ int main(int argc, char *argv[])
 			record_time.time("running time");
 			std::cout << "num of time steps: " << num_time_step 
 					<< "; time step: " << dt 
-					<< "; curr time: " << curr_time << std::endl
+					<< "; elapsed time: " << curr_time << std::endl
 					<< std::endl << std::endl;
 		}		
 	}
@@ -308,10 +308,12 @@ int main(int argc, char *argv[])
 	// compute error for f = f(x, v, t) = sin(2*pi*(x+v+t))
 	auto final_func_f = [&](std::vector<double> x) -> double 
 	{	
-		// return sin(2*Const::PI*(x[0] + x[1] + final_time));
-		return sin(2*Const::PI*(x[0] - final_time)) * cos(2*Const::PI*(x[1] - 0.9*final_time)) * (cos(2.*Const::PI*(x[2] - 0.88*final_time)));
+		double x2 = x[0]; double v1 = x[1]; double v2 = x[2];
+		double pi = Const::PI; double t = final_time;
+
+		return sin(2*pi*(x2)) * sin(2*pi*(v1)) * cos(2*pi*(v2)) * exp(t);
 	};
-	std::vector<double> err_f = dg_f.get_error_no_separable_scalar(final_func_f, num_gauss_pt_compute_error);
+	std::vector<double> err_f = dg_f.get_error_no_separable_system(final_func_f, num_gauss_pt_compute_error, 0);
 	std::cout << "L1, L2 and Linf error (for f) at final time: " << err_f[0] << ", " << err_f[1] << ", " << err_f[2] << std::endl;
 
 	// // compute error for E

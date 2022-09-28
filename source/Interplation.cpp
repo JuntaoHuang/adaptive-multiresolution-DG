@@ -4418,12 +4418,10 @@ void LagrInterpolation::interp_Vlasov_1D2V(DGSolution & dg_BE, FastLagrIntp & fa
 			// dimension 1: (E1 + v2 * B3) * f
 			d = 1;
 			fp[0][d].at(*it0) = (E1 + v2 * B3) * f;
-			fp[0][d].at(*it0) = 0.9 * f;
 
 			// dimension 2: (E2 - v1 * B3) * f
 			d = 2;
 			fp[0][d].at(*it0) = (E2 - v1 * B3) * f;
-			fp[0][d].at(*it0) = 0.88 * f;
 		}
 	}
 
