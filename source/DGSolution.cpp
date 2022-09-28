@@ -1220,6 +1220,17 @@ void DGSolution::copy_rhs_to_ucoe()
 	}
 }
 
+void DGSolution::add_ucoe_to_rhs()
+{
+	for (auto & iter : dg)
+	{
+		for (size_t i = 0; i < VEC_NUM; i++)
+		{
+			iter.second.rhs[i] += iter.second.ucoe_alpt[i];
+		}
+	}
+}
+
 void DGSolution::update_viscosity_intersect_element()
 {
 	viscosity_intersect_element.clear();

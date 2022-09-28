@@ -237,6 +237,18 @@ int main(int argc, char *argv[])
             // calculate rhs and update Element::ucoe_alpt
             dg_f.set_rhs_zero();
 
+			// compute source
+			FastLagrInit fastLagr_source(dg_f, oper_matx_lagr);
+			double source_time = curr_time;
+            if (stage == 1) { source_time += dt; }
+            else if (stage == 2) { source_time += dt/2.; }
+			auto source_func = [&](std::vector<double> x, int i)->double
+			{
+				return (cos(2*(Const::PI)*(source_time + x[1] + x[0]))*(sin(2*(Const::PI)*(source_time + x[0])) - sin(2*(Const::PI)*x[0]) + 4*x[1]*(Const::PI)*(Const::PI) + 4*(Const::PI)*(Const::PI)*cos(2*(Const::PI)*x[0]) + 4*(Const::PI)*(Const::PI)))/(2*(Const::PI));
+			};
+			interp.source_from_lagr_to_rhs(source_func, fastLagr_source);
+			
+			// compute volume and flux integral using interpolation basis
 			fast_rhs_lagr.rhs_vol_scalar();
 			fast_rhs_lagr.rhs_flx_intp_scalar();
 
@@ -244,20 +256,6 @@ int main(int argc, char *argv[])
             odeSolver_f.set_rhs_zero();
             odeSolver_f.add_rhs_to_eigenvec();
             odeSolver_f.add_rhs_matrix(linear);
-
-            // source term for f
-			{			
-            double source_time = curr_time;
-            if (stage == 1) { source_time += dt; }
-            else if (stage == 2) { source_time += dt/2.; }
-			auto source_func = [&](std::vector<double> x, int i)->double
-			{
-				return (cos(2*(Const::PI)*(source_time + x[1] + x[0]))*(sin(2*(Const::PI)*(source_time + x[0])) - sin(2*(Const::PI)*x[0]) + 4*x[1]*(Const::PI)*(Const::PI) + 4*(Const::PI)*(Const::PI)*cos(2*(Const::PI)*x[0]) + 4*(Const::PI)*(Const::PI)))/(2*(Const::PI));
-			};
-            Domain2DIntegral source_operator(dg_f, all_bas_alpt, source_func);
-            source_operator.assemble_vector();
-            odeSolver_f.add_rhs_vector(source_operator.vec_b);
-            }
 
             odeSolver_f.step_stage(stage);
 			

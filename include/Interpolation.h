@@ -93,6 +93,9 @@ class LagrInterpolation:
 		void init_from_Lagr_to_alpt_fast(std::function<double(std::vector<double>, int)> func,
 									     FastLagrInit & fastLagr_init);
 
+		// lagrange interpolate source term, then transform to coefficients of alpert basis and add it to Element::rhs
+		void source_from_lagr_to_rhs(std::function<double(std::vector<double>, int)> func, FastLagrInit & fastLagr);
+
 		// this function only works for full grid
 		void init_from_Lagr_to_alpt_fast_full(std::function<double(std::vector<double>, int)> func,
 									     FastLagrFullInit & fastLagr_init);
@@ -149,38 +152,31 @@ protected:
 	void wave_eval_coe_u_Lag(std::function<double(std::vector<double>, int)> coefficient_func, std::vector< std::vector<bool> > is_intp);
 
 	// read function value at Lagrange point from exact function directly
-
+	// this function will update Element::up_intp
 	void eval_up_exact_Lag(std::function<double(std::vector<double>, int)> func);
 
 	// read function value at Lagrange point from exact function directly for adaptive interpolation initialization
-
 	void eval_up_exact_ada_Lag(std::function<double(std::vector<double>, int)> func);
 
 	// find points and weights which will affact the coefficients of the Lagrange interpolation points
-
 	void set_pts_wts_1d_ada_Lag(int l, int j);
 
 	// u: compute hierarchical coefficients of Lagrange basis based on function value at Lagrange point 
-
 	void eval_up_to_coe_D_Lag();
 
 	// u: compute hierarchical coefficients of Lagrange basis based on function value at Lagrange point
 	// for adaptive interpolation
-
 	void eval_up_to_coe_D_ada_Lag();
 
 	// fu: compute hierarchical coefficients of Lagrange basis based on function value at Lagrange point 
-
 	void eval_fp_to_coe_D_Lag(std::vector< std::vector<bool> > is_intp);
 
 	// fu: compute hierarchical coefficients of Lagrange basis based on function value at Lagrange point 
 	// for HJ equation
 	// just compute case: VEC_NUM = 0, d = 0
-
 	void eval_fp_to_coe_D_Lag_HJ();
 
 	// function to compute Lagrange point value at pos[D] based on Alpt basis
-	
 	void eval_point_val_Alpt_Lag(std::vector<double> & pos, std::vector<int> & m1, std::vector<double> & val);
 	
 	// function to compute first derivative value at pos[D] based on Alpt basis

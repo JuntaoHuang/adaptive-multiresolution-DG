@@ -200,6 +200,9 @@ public:
 	/// copy Element::rhs to Element::ucoe_alpt
 	void copy_rhs_to_ucoe();
 
+	/// add Element::ucoe_alpt to Element::rhs
+	void add_ucoe_to_rhs();
+
 	/// key member in this class, store all the active elements and its hash key
 	std::unordered_map<int, Element> dg;
 
