@@ -197,62 +197,74 @@ int main(int argc, char *argv[])
 		
         // --- part 4: time evolution
 		// linear operator for f
-		HyperbolicAlpt linear(dg_f, oper_matx_alpt);
-		std::vector<std::vector<double>> coefficient_d0 = {{1, 0, 0}, {0, 0, 0}, {0, 0, 0}};
-		std::vector<std::vector<double>> coefficient_d1 = {{2, 0, 0}, {0, 0, 0}, {0, 0, 0}};
-		std::vector<std::vector<double>> coefficient_d2 = {{2, 0, 0}, {0, 0, 0}, {0, 0, 0}};
-		std::vector<std::vector<std::vector<double>>> coefficient = {coefficient_d0, coefficient_d1, coefficient_d2};
-
+		HyperbolicAlpt linear_f(dg_f, oper_matx_alpt);
+		// std::vector<std::vector<double>> coefficient_d0 = {{1, 0, 0}, {0, 0, 0}, {0, 0, 0}};
+		// std::vector<std::vector<double>> coefficient_d1 = {{2, 0, 0}, {0, 0, 0}, {0, 0, 0}};
+		// std::vector<std::vector<double>> coefficient_d2 = {{2, 0, 0}, {0, 0, 0}, {0, 0, 0}};
+		// std::vector<std::vector<std::vector<double>>> coefficient = {coefficient_d0, coefficient_d1, coefficient_d2};
 		for (int d = 0; d < DIM; d++)
 		{
 			// // volume integral
-			// linear.assemble_matrix_vol_system(d, coefficient[d]);
+			// linear_f.assemble_matrix_vol_system(d, coefficient[d]);
 
 			// // flux integral
-			// linear.assemble_matrix_flx_system(d, -1, coefficient[d], 0.5);
-			// linear.assemble_matrix_flx_system(d, 1, coefficient[d], 0.5);
+			// linear_f.assemble_matrix_flx_system(d, -1, coefficient[d], 0.5);
+			// linear_f.assemble_matrix_flx_system(d, 1, coefficient[d], 0.5);
 
 			// flux integral
-			linear.assemble_matrix_flx_system(d, -1, {1, 0, 0}, lxf_alpha/2);
-			linear.assemble_matrix_flx_system(d, 1, {1, 0, 0}, -lxf_alpha/2);
+			linear_f.assemble_matrix_flx_system(d, -1, {1, 0, 0}, lxf_alpha/2);
+			linear_f.assemble_matrix_flx_system(d, 1, {1, 0, 0}, -lxf_alpha/2);
 		}
 
-        RK3SSP odeSolver_f(linear, dt);
+		// linear operator for (B3, E1, E2)
+		HyperbolicAlpt linear_BE(dg_BE, oper_matx_alpt);
+		std::vector<std::vector<double>> coefficient_d0 = {{0, -1, 0}, {-1, 0, 0}, {0, 0, 0}};
+		
+		int d = 0;	// Maxwell equation only in x2 dimension
+		// volume integral
+		linear_BE.assemble_matrix_vol_system(d, coefficient_d0);
+
+		// flux integral
+		linear_BE.assemble_matrix_flx_system(d, -1, coefficient_d0, 0.5);
+		linear_BE.assemble_matrix_flx_system(d, 1, coefficient_d0, 0.5);
+
+		// flux integral
+		double lxf_alpha_BE = 1.0;
+		linear_BE.assemble_matrix_flx_system(d, -1, {1, 0, 0}, lxf_alpha_BE/2);
+		linear_BE.assemble_matrix_flx_system(d, 1, {1, 0, 0}, -lxf_alpha_BE/2);
+
+        RK3SSP odeSolver_f(linear_f, dt);
         odeSolver_f.init();
 
-		RK3SSP odeSolver_BE(dg_BE, dt);
+		RK3SSP odeSolver_BE(linear_BE, dt);
 		odeSolver_BE.init();
 
         for ( int stage = 0; stage < odeSolver_f.num_stage; ++stage )
         {			
 			// --- step 1: update RHS for f ---
             // Lagrange interpolation
-            LagrInterpolation interp(dg_f);			
-			interp.interp_Vlasov_1D2V(dg_BE, fast_lagr_intp_f, fast_lagr_intp_BE);
+            LagrInterpolation interp_f(dg_f);
+			interp_f.interp_Vlasov_1D2V(dg_BE, fast_lagr_intp_f, fast_lagr_intp_BE);
             
 			// start computation of rhs
             dg_f.set_rhs_zero();
 
 			// compute source for f
-			FastLagrInit fastLagr_source(dg_f, oper_matx_lagr);
+			FastLagrInit fastLagr_source_f(dg_f, oper_matx_lagr);
 			double source_time = curr_time;
             if (stage == 1) { source_time += dt; }
             else if (stage == 2) { source_time += dt/2.; }
-			auto source_func = [&](std::vector<double> x, int i)->double
+			auto source_func_f = [&](std::vector<double> x, int i)->double
 			{
-				if (i==0)				
-				{				
-					double x2 = x[0]; double v1 = x[1]; double v2 = x[2];
-					double pi = Const::PI; double t = source_time;
-
+				double x2 = x[0]; double v1 = x[1]; double v2 = x[2];
+				double pi = Const::PI; double t = source_time;				
+				if (i==0)
+				{
 					return exp(t)*cos(2*pi*v2)*sin(2*pi*v1)*sin(2*pi*x2) + 2*pi*exp(t)*sin(2*pi*v1)*sin(2*pi*v2)*sin(2*pi*x2)*(v1*cos(2*pi*x2) - 2*pow(cos(2*pi*x2), 2) + 1) + 2*pi*exp(t)*cos(2*pi*v1)*cos(2*pi*v2)*sin(2*pi*x2)*(sin(2*pi*x2) + v2*cos(2*pi*x2)) + 2*v2*pi*exp(t)*cos(2*pi*v2)*cos(2*pi*x2)*sin(2*pi*v1);
 				}
-				else
-				{
-					return 0.; 
-				}
+				else { return 0.; }
 			};
-			interp.source_from_lagr_to_rhs(source_func, fastLagr_source);
+			interp_f.source_from_lagr_to_rhs(source_func_f, fastLagr_source_f);
 
 			fast_rhs_lagr.rhs_vol_scalar();
 			fast_rhs_lagr.rhs_flx_intp_scalar();
@@ -260,22 +272,43 @@ int main(int argc, char *argv[])
             // add to rhs in odeSolver_f
             odeSolver_f.set_rhs_zero();
             odeSolver_f.add_rhs_to_eigenvec();
-            odeSolver_f.add_rhs_matrix(linear);
+            odeSolver_f.add_rhs_matrix(linear_f);
 
             odeSolver_f.step_stage(stage);
 			
 			// // --- step 2: update RHS for E ---
-			// dg_E.set_rhs_zero();
+			dg_BE.set_rhs_zero();
 
+			// compute moment of f
 			// const std::vector<int> moment_order{0, 1};
 			// const std::vector<double> moment_order_weight{0., -1.};
 			// const int num_vec = 0;
 			// dg_E.compute_moment_full_grid(dg_f, moment_order, moment_order_weight, num_vec);
 
-            // odeSolver_E.set_rhs_zero();
-			// odeSolver_E.add_rhs_to_eigenvec();
+			// compute source for (B3, E1, E2)
+			LagrInterpolation interp_BE(dg_BE);
+			FastLagrInit fastLagr_source_BE(dg_BE, oper_matx_lagr);
+			auto source_func_BE = [&](std::vector<double> x, int i)->double
+			{
+				double x2 = x[0]; double v1 = x[1]; double v2 = x[2];
+				double pi = Const::PI; double t = source_time;
 
-			// odeSolver_E.step_stage(stage);
+				// source for B3
+				if (i==0) { return -2*pi*cos(2*pi*x2); }
+				// source for E1
+				else if (i==1) { return 2*pi*sin(2*pi*x2); }
+				// source for E2
+				else { return 0.; }
+			};
+			interp_BE.source_from_lagr_to_rhs(source_func_BE, fastLagr_source_BE);
+
+            odeSolver_BE.set_rhs_zero();
+			odeSolver_BE.add_rhs_to_eigenvec();
+
+			// compute Maxwell
+			odeSolver_BE.add_rhs_matrix(linear_BE);
+			
+			odeSolver_BE.step_stage(stage);
 
 			// --- step 3: copy ODESolver::ucoe to Element::ucoe_alpt for f and set ODESolver::rhs to be zero ---
             odeSolver_f.final();
@@ -316,13 +349,28 @@ int main(int argc, char *argv[])
 	std::vector<double> err_f = dg_f.get_error_no_separable_system(final_func_f, num_gauss_pt_compute_error, 0);
 	std::cout << "L1, L2 and Linf error (for f) at final time: " << err_f[0] << ", " << err_f[1] << ", " << err_f[2] << std::endl;
 
-	// // compute error for E
-	// auto final_func_E = [&](std::vector<double> x) -> double 
-	// {
-	// 	return (sin(2*(Const::PI)*(final_time + x[0])) - sin(2*(Const::PI)*x[0]) + 4*(Const::PI)*(Const::PI)*cos(2*(Const::PI)*x[0]))/(4*(Const::PI)*(Const::PI));
-	// };
-	// std::vector<double> err_E = dg_BE.get_error_no_separable_scalar(final_func_E, num_gauss_pt_compute_error);
-	// std::cout << "L1, L2 and Linf error (for E) at final time: " << err_E[0] << ", " << err_E[1] << ", " << err_E[2] << std::endl;
+	// compute error for (B3, E1, E2)
+	auto final_func_B3 = [&](std::vector<double> x) -> double 
+	{
+		double x2 = x[0]; double pi = Const::PI; double t = final_time;		
+		return cos(2*pi*x2);
+	};
+	auto final_func_E1 = [&](std::vector<double> x) -> double 
+	{
+		double x2 = x[0]; double pi = Const::PI; double t = final_time;		
+		return sin(2*pi*x2);
+	};
+	auto final_func_E2 = [&](std::vector<double> x) -> double 
+	{
+		double x2 = x[0]; double pi = Const::PI; double t = final_time;		
+		return cos(4*pi*x2);
+	};
+	std::vector<double> err_B3 = dg_BE.get_error_no_separable_system(final_func_B3, num_gauss_pt_compute_error, 0);
+	std::vector<double> err_E1 = dg_BE.get_error_no_separable_system(final_func_E1, num_gauss_pt_compute_error, 1);
+	std::vector<double> err_E2 = dg_BE.get_error_no_separable_system(final_func_E2, num_gauss_pt_compute_error, 2);
+	std::cout << "L1, L2 and Linf error (for B3) at final time: " << err_B3[0] << ", " << err_B3[1] << ", " << err_B3[2] << std::endl;
+	std::cout << "L1, L2 and Linf error (for E1) at final time: " << err_E1[0] << ", " << err_E1[1] << ", " << err_E1[2] << std::endl;
+	std::cout << "L1, L2 and Linf error (for E2) at final time: " << err_E2[0] << ", " << err_E2[1] << ", " << err_E2[2] << std::endl;
 
 	return 0;
 }
