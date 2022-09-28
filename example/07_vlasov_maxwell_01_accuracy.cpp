@@ -260,7 +260,8 @@ int main(int argc, char *argv[])
 				double pi = Const::PI; double t = source_time;				
 				if (i==0)
 				{
-					return exp(t)*cos(2*pi*v2)*sin(2*pi*v1)*sin(2*pi*x2) + 2*pi*exp(t)*sin(2*pi*v1)*sin(2*pi*v2)*sin(2*pi*x2)*(v1*cos(2*pi*x2) - 2*pow(cos(2*pi*x2), 2) + 1) + 2*pi*exp(t)*cos(2*pi*v1)*cos(2*pi*v2)*sin(2*pi*x2)*(sin(2*pi*x2) + v2*cos(2*pi*x2)) + 2*v2*pi*exp(t)*cos(2*pi*v2)*cos(2*pi*x2)*sin(2*pi*v1);
+					// return exp(t)*cos(2*pi*v2)*sin(2*pi*v1)*sin(2*pi*x2) + 2*pi*exp(t)*sin(2*pi*v1)*sin(2*pi*v2)*sin(2*pi*x2)*(v1*cos(2*pi*x2) - 2*pow(cos(2*pi*x2), 2) + 1) + 2*pi*exp(t)*cos(2*pi*v1)*cos(2*pi*v2)*sin(2*pi*x2)*(sin(2*pi*x2) + v2*cos(2*pi*x2)) + 2*v2*pi*exp(t)*cos(2*pi*v2)*cos(2*pi*x2)*sin(2*pi*v1);
+					return exp(t)*cos(2*pi*v2)*sin(2*pi*v1)*sin(2*pi*x2) - 2*pi*exp(t)*sin(2*pi*v1)*sin(2*pi*v2)*sin(2*pi*x2)*(exp(-t)*(2*pow(cos(2*pi*x2),2) - 1) - v1*cos(2*pi*x2)*(t + 1)) + 2*v2*pi*exp(t)*cos(2*pi*v2)*cos(2*pi*x2)*sin(2*pi*v1) + 2*pi*exp(t)*cos(2*pi*v1)*cos(2*pi*v2)*sin(2*pi*x2)*(exp(2*t)*sin(2*pi*x2) + v2*cos(2*pi*x2)*(t + 1));
 				}
 				else { return 0.; }
 			};
@@ -294,11 +295,23 @@ int main(int argc, char *argv[])
 				double pi = Const::PI; double t = source_time;
 
 				// source for B3
-				if (i==0) { return -2*pi*cos(2*pi*x2); }
+				if (i==0)
+				{
+					// return -2*pi*cos(2*pi*x2);
+					return -cos(2*pi*x2)*(2*pi*exp(2*t) - 1);
+				}
 				// source for E1
-				else if (i==1) { return 2*pi*sin(2*pi*x2); }
+				else if (i==1)
+				{
+					// return 2*pi*sin(2*pi*x2);
+					return 2*sin(2*pi*x2)*(pi + exp(2*t) + pi*t);
+				}
 				// source for E2
-				else { return 0.; }
+				else
+				{
+					// return 0.;
+					return -exp(-t)*cos(4*pi*x2);
+				}
 			};
 			interp_BE.source_from_lagr_to_rhs(source_func_BE, fastLagr_source_BE);
 
@@ -353,17 +366,17 @@ int main(int argc, char *argv[])
 	auto final_func_B3 = [&](std::vector<double> x) -> double 
 	{
 		double x2 = x[0]; double pi = Const::PI; double t = final_time;		
-		return cos(2*pi*x2);
+		return cos(2*pi*x2) * (t + 1);
 	};
 	auto final_func_E1 = [&](std::vector<double> x) -> double 
 	{
 		double x2 = x[0]; double pi = Const::PI; double t = final_time;		
-		return sin(2*pi*x2);
+		return sin(2*pi*x2) * exp(2*t);
 	};
 	auto final_func_E2 = [&](std::vector<double> x) -> double 
 	{
 		double x2 = x[0]; double pi = Const::PI; double t = final_time;		
-		return cos(4*pi*x2);
+		return cos(4*pi*x2) * exp(-t);
 	};
 	std::vector<double> err_B3 = dg_BE.get_error_no_separable_system(final_func_B3, num_gauss_pt_compute_error, 0);
 	std::vector<double> err_E1 = dg_BE.get_error_no_separable_system(final_func_E1, num_gauss_pt_compute_error, 1);
