@@ -130,8 +130,8 @@ int main(int argc, char *argv[])
 	auto init_func_1 = [](double x, int d) -> double
 	{
 		if (d == 0) { return sin(2.*Const::PI*x); }
-		else if (d == 1) { return sin(2.*Const::PI*x); }
-		else if (d == 2) { return cos(2.*Const::PI*x); }
+		else if (d == 1) { return pow(sin(2.*Const::PI*x), 2.); }
+		else if (d == 2) { return pow(cos(2.*Const::PI*x), 2.); }
 	};
 	auto init_func_zero = [](double x, int d) { return 0.; };
 	std::vector<std::function<double(double, int)>> init_func_f{init_func_1, init_func_zero, init_func_zero};
@@ -247,8 +247,8 @@ int main(int argc, char *argv[])
 				double pi = Const::PI; double t = source_time;				
 				if (i==0)
 				{
-					// return exp(t)*cos(2*pi*v2)*sin(2*pi*v1)*sin(2*pi*x2) + 2*pi*exp(t)*sin(2*pi*v1)*sin(2*pi*v2)*sin(2*pi*x2)*(v1*cos(2*pi*x2) - 2*pow(cos(2*pi*x2), 2) + 1) + 2*pi*exp(t)*cos(2*pi*v1)*cos(2*pi*v2)*sin(2*pi*x2)*(sin(2*pi*x2) + v2*cos(2*pi*x2)) + 2*v2*pi*exp(t)*cos(2*pi*v2)*cos(2*pi*x2)*sin(2*pi*v1);
-					return exp(t)*cos(2*pi*v2)*sin(2*pi*v1)*sin(2*pi*x2) - 2*pi*exp(t)*sin(2*pi*v1)*sin(2*pi*v2)*sin(2*pi*x2)*(exp(-t)*(2*pow(cos(2*pi*x2),2) - 1) - v1*cos(2*pi*x2)*(t + 1)) + 2*v2*pi*exp(t)*cos(2*pi*v2)*cos(2*pi*x2)*sin(2*pi*v1) + 2*pi*exp(t)*cos(2*pi*v1)*cos(2*pi*v2)*sin(2*pi*x2)*(exp(2*t)*sin(2*pi*x2) + v2*cos(2*pi*x2)*(t + 1));
+					// return exp(t)*cos(2*pi*v2)*sin(2*pi*v1)*sin(2*pi*x2) - 2*pi*exp(t)*sin(2*pi*v1)*sin(2*pi*v2)*sin(2*pi*x2)*(exp(-t)*(2*pow(cos(2*pi*x2),2) - 1) - v1*cos(2*pi*x2)*(t + 1)) + 2*v2*pi*exp(t)*cos(2*pi*v2)*cos(2*pi*x2)*sin(2*pi*v1) + 2*pi*exp(t)*cos(2*pi*v1)*cos(2*pi*v2)*sin(2*pi*x2)*(exp(2*t)*sin(2*pi*x2) + v2*cos(2*pi*x2)*(t + 1));
+					return exp(t)*pow(cos(2*pi*v2),2)*pow(sin(2*pi*v1),2)*sin(2*pi*x2) + 2*v2*pi*exp(t)*pow(cos(2*pi*v2),2)*cos(2*pi*x2)*pow(sin(2*pi*v1),2) - 4*pi*exp(t)*cos(2*pi*v2)*pow(sin(2*pi*v1),2)*sin(2*pi*v2)*sin(2*pi*x2)*(exp(-t)*(2*pow(cos(2*pi*x2),2) - 1) - v1*cos(2*pi*x2)*(t + 1)) + 4*pi*exp(t)*cos(2*pi*v1)*pow(cos(2*pi*v2),2)*sin(2*pi*v1)*sin(2*pi*x2)*(exp(2*t)*sin(2*pi*x2) + v2*cos(2*pi*x2)*(t + 1));
 				}
 				else { return 0.; }
 			};
@@ -267,11 +267,11 @@ int main(int argc, char *argv[])
 			// // --- step 2: update RHS for E ---
 			dg_BE.set_rhs_zero();
 
-			// compute moment of f
-			// const std::vector<int> moment_order{0, 1};
-			// const std::vector<double> moment_order_weight{0., -1.};
-			// const int num_vec = 0;
-			// dg_E.compute_moment_full_grid(dg_f, moment_order, moment_order_weight, num_vec);
+			// compute moments of f
+			// compute - \iint f(x2, v1, v2) v1 dv1 dv2
+			dg_BE.compute_moment_1D2V(dg_f, {1, 0}, -1.0, 1, 0);
+			// compute - \iint f(x2, v1, v2) v2 dv1 dv2
+			dg_BE.compute_moment_1D2V(dg_f, {0, 1}, -1.0, 2, 0);
 
 			// compute source for (B3, E1, E2)
 			LagrInterpolation interp_BE(dg_BE);
@@ -284,20 +284,20 @@ int main(int argc, char *argv[])
 				// source for B3
 				if (i==0)
 				{
-					// return -2*pi*cos(2*pi*x2);
 					return -cos(2*pi*x2)*(2*pi*exp(2*t) - 1);
 				}
 				// source for E1
 				else if (i==1)
 				{
-					// return 2*pi*sin(2*pi*x2);
-					return 2*sin(2*pi*x2)*(pi + exp(2*t) + pi*t);
+					// return 2*sin(2*pi*x2)*(pi + exp(2*t) + pi*t);
+					return (sin(2*pi*x2)*(16*pi + 16*exp(2*t) + exp(t) + 16*pi*t))/8;
+
 				}
 				// source for E2
 				else
 				{
-					// return 0.;
-					return -exp(-t)*cos(4*pi*x2);
+					// return -exp(-t)*cos(4*pi*x2);
+					return (exp(-t)*(exp(2*t)*sin(2*pi*x2) + 16*pow(sin(2*pi*x2),2) - 8))/8;
 				}
 			};
 			interp_BE.source_from_lagr_to_rhs(source_func_BE, fastLagr_source_BE);
@@ -344,7 +344,8 @@ int main(int argc, char *argv[])
 		double x2 = x[0]; double v1 = x[1]; double v2 = x[2];
 		double pi = Const::PI; double t = final_time;
 
-		return sin(2*pi*(x2)) * sin(2*pi*(v1)) * cos(2*pi*(v2)) * exp(t);
+		// return sin(2*pi*(x2)) * sin(2*pi*(v1)) * cos(2*pi*(v2)) * exp(t);
+		return sin(2*pi*(x2)) * pow(sin(2*pi*(v1)), 2.) * pow(cos(2*pi*(v2)), 2.) * exp(t);
 	};
 	std::vector<double> err_f = dg_f.get_error_no_separable_system(final_func_f, num_gauss_pt_compute_error, 0);
 	std::cout << "L1, L2 and Linf error (for f) at final time: " << err_f[0] << ", " << err_f[1] << ", " << err_f[2] << std::endl;
