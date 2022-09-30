@@ -204,13 +204,6 @@ int main(int argc, char *argv[])
 		// std::vector<std::vector<std::vector<double>>> coefficient = {coefficient_d0, coefficient_d1, coefficient_d2};
 		for (int d = 0; d < DIM; d++)
 		{
-			// // volume integral
-			// linear_f.assemble_matrix_vol_system(d, coefficient[d]);
-
-			// // flux integral
-			// linear_f.assemble_matrix_flx_system(d, -1, coefficient[d], 0.5);
-			// linear_f.assemble_matrix_flx_system(d, 1, coefficient[d], 0.5);
-
 			// flux integral
 			linear_f.assemble_matrix_flx_system(d, -1, {1, 0, 0}, lxf_alpha/2);
 			linear_f.assemble_matrix_flx_system(d, 1, {1, 0, 0}, -lxf_alpha/2);
@@ -218,20 +211,14 @@ int main(int argc, char *argv[])
 
 		// linear operator for (B3, E1, E2)
 		HyperbolicAlpt linear_BE(dg_BE, oper_matx_alpt);
-		std::vector<std::vector<double>> coefficient_d0 = {{0, -1, 0}, {-1, 0, 0}, {0, 0, 0}};
 		
 		int d = 0;	// Maxwell equation only in x2 dimension
 		// volume integral
-		linear_BE.assemble_matrix_vol_system(d, coefficient_d0);
+		linear_BE.assemble_matrix_vol_system(d, {{0, -1, 0}, {-1, 0, 0}, {0, 0, 0}});
 
-		// flux integral
-		linear_BE.assemble_matrix_flx_system(d, -1, coefficient_d0, 0.5);
-		linear_BE.assemble_matrix_flx_system(d, 1, coefficient_d0, 0.5);
-
-		// flux integral
-		double lxf_alpha_BE = 1.0;
-		linear_BE.assemble_matrix_flx_system(d, -1, {1, 0, 0}, lxf_alpha_BE/2);
-		linear_BE.assemble_matrix_flx_system(d, 1, {1, 0, 0}, -lxf_alpha_BE/2);
+		// flux integral, upwind flux
+		linear_BE.assemble_matrix_flx_system(d, -1, {{0.5, -0.5, 0}, {-0.5, 0.5, 0}, {0, 0, 0}});
+		linear_BE.assemble_matrix_flx_system(d, 1, {{-0.5, -0.5, 0}, {-0.5, -0.5, 0}, {0, 0, 0}});
 
         RK3SSP odeSolver_f(linear_f, dt);
         odeSolver_f.init();
@@ -367,11 +354,15 @@ int main(int argc, char *argv[])
 	{
 		double x2 = x[0]; double pi = Const::PI; double t = final_time;		
 		return cos(2*pi*x2) * (t + 1);
+		// // exact solution to only Maxwell equation
+		// return 0.5 * (init_func_B3(x2+t, 0) + init_func_B3(x2-t, 0) + init_func_E1(x2+t, 0) - init_func_E1(x2-t, 0));
 	};
 	auto final_func_E1 = [&](std::vector<double> x) -> double 
 	{
 		double x2 = x[0]; double pi = Const::PI; double t = final_time;		
 		return sin(2*pi*x2) * exp(2*t);
+		// // exact solution to only Maxwell equation
+		// return 0.5 * (init_func_B3(x2+t, 0) - init_func_B3(x2-t, 0) + init_func_E1(x2+t, 0) + init_func_E1(x2-t, 0));
 	};
 	auto final_func_E2 = [&](std::vector<double> x) -> double 
 	{
