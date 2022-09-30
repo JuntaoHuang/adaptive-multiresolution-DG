@@ -25,8 +25,10 @@ int main(int argc, char *argv[])
 	// --------------------------------------------------------------------------------------------
 	// --- Part 1: preliminary part	---
 	// static variables
-	const int DIM = 2;
-	int auxiliary_dim = 1;
+	const int DIM = 3;
+	const int VEC_NUM = 2;
+
+	int auxiliary_dim = 2;
 	int real_dim = DIM - auxiliary_dim;
 
 	AlptBasis::PMAX = 2;
@@ -40,7 +42,7 @@ int main(int argc, char *argv[])
 	Element::PMAX_alpt = AlptBasis::PMAX;	// max polynomial degree for Alpert's basis functions
 	Element::PMAX_intp = HermBasis::PMAX;	// max polynomial degree for interpolation basis functions
 	Element::DIM = DIM;			// dimension
-	Element::VEC_NUM = 1;		// num of unknown variables in PDEs
+	Element::VEC_NUM = VEC_NUM;		// num of unknown variables in PDEs
 
 	DGSolution::DIM = Element::DIM;
 	DGSolution::VEC_NUM = Element::VEC_NUM;
@@ -48,7 +50,7 @@ int main(int argc, char *argv[])
 	Interpolation::DIM = DGSolution::DIM;
 	Interpolation::VEC_NUM = DGSolution::VEC_NUM;
 
-	DGSolution::ind_var_vec = { 0 };
+	DGSolution::ind_var_vec = { 0, 1 };
 	DGAdapt::indicator_var_adapt = { 0 };
 
 	Element::is_intp.resize(Element::VEC_NUM);
@@ -115,25 +117,26 @@ int main(int argc, char *argv[])
 	auto init_func_1 = [](double x, int d)
 	{
 		if (d == 0) { return sin(x); }
-		// else if (d == 1) { return (2*x-1)*sqrt(3.); }
-		else if (d == 1) { return x; }
-		// else { return 1.; }
+		else if (d == 1) { return 1.; }
+		// else if (d == 1) { return 1.; }
+		else { return x*x; }
 	};
 	f.init_separable_scalar(init_func_1);
 	
 	std::vector<int> moment_order{0, 1, 2};
 	std::vector<double> moment_order_weight{1.0, 3.0, -1.};
 	int num_vec = 0;
-	dg_solu.compute_moment_full_grid(f, moment_order, moment_order_weight, num_vec);
+	// dg_solu.compute_moment_full_grid(f, moment_order, moment_order_weight, num_vec);
+	dg_solu.compute_moment_1D2V(f, {0, 1}, -2., 0, 0);
 	dg_solu.copy_rhs_to_ucoe();
 
 	const int num_gauss_pt = 7;
 	// exact solution at final time: u(x_1, x_2, ..., x_d, t) = cos(2 * PI * ( sum_(d=1)^DIM (x_d) - DIM * t))
 	auto final_func = [=](std::vector<double> x) 
 	{	
-		return sin(x[0]) * 1.25;
+		return sin(x[0]) * (-2.) /4.;
 	};
-	std::vector<double> err_l1_l2_linf = dg_solu.get_error_no_separable_scalar(final_func, num_gauss_pt);
+	std::vector<double> err_l1_l2_linf = dg_solu.get_error_no_separable_system(final_func, num_gauss_pt, 0);
 	std::cout << "L1, L2 and Linf error at final time: " << err_l1_l2_linf[0] << ", " << err_l1_l2_linf[1] << ", " << err_l1_l2_linf[2] << std::endl;
 
 	return 0;
