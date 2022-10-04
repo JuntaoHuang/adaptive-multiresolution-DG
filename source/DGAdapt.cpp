@@ -287,6 +287,36 @@ void DGAdapt::compute_moment_1D2V(DGAdapt & f, const std::vector<int> & moment_o
 	}
 }
 
+void DGAdapt::adapt_f_base_on_E(DGAdapt & E)
+{
+	// loop over all the elements in E
+	for (auto & iter_E : E.dg)
+	{
+		// index (including mesh level and support index)
+		const std::array<std::vector<int>,2> & index_E = {iter_E.second.level, iter_E.second.suppt};
+
+		// compute hash key of the element in E and find it in f
+		int hash_key_E = hash.hash_key(index_E);
+		auto iter_f = this->dg.find(hash_key_E);
+
+		// if the corresponding element is not in f dg solution
+		// then add new element in f and then copy point value of E to f	
+		if (iter_f == this->dg.end())
+		{
+			Element elem(iter_E.second.level, iter_E.second.suppt, all_bas, hash);
+			this->add_elem(elem);
+		}
+	}
+
+    check_hole();
+
+    update_leaf();
+
+    update_leaf_zero_child();
+
+    update_order_all_basis_in_dgmap();
+}
+
 // the key member function in the DGAdapt class
 void DGAdapt::refine()
 {
@@ -323,6 +353,64 @@ void DGAdapt::refine()
     update_order_all_basis_in_dgmap();
 }
 
+// NOT TESTED
+void DGAdapt::refine(const int max_mesh, const std::vector<int> dim)
+{
+	// generate vector narray as mesh level index, each element is a vector of size dim: ( n1, n2, ..., n_(dim) ), 0 <= n_i <= NMAX for any 1 <= i <= dim
+	std::vector<std::vector<int>> narray;
+	std::vector<int> narray_max(DIM, 0);
+	for (int i = 0; i < dim.size(); i++)
+	{
+		int d = dim[i];
+		narray_max[d] = max_mesh + 1;
+	}
+	IterativeNestedLoop(narray, DIM, narray_max); // generate a full-grid mesh level index; avoid loop of the dimension
+
+	for (auto const & lev_n : narray) 
+	{
+		int lev_n_max = 0;
+		for (auto & l : lev_n) { lev_n_max = std::max(lev_n_max, l); }
+
+		if (lev_n_max < max_mesh) { continue; }
+
+		// loop over all mesh level array of size dim
+		// full grid, generate index j: 0, 1, ..., 2^(n-1)-1, for n >= 2. Otherwise j=0 for n=0,1
+		std::vector<int> jarray_max;
+		for (auto const & n : lev_n)
+		{
+			int jmax = 1;
+			if (n != 0) jmax = pow_int(2, n - 1);
+
+			jarray_max.push_back(jmax);
+		}
+
+		std::vector<std::vector<int>> jarray;
+		IterativeNestedLoop(jarray, DIM, jarray_max);
+
+		for (auto const & sup_j : jarray)
+		{
+			// transform to odd index
+			std::vector<int> odd_j(sup_j.size());
+			for (size_t i = 0; i < sup_j.size(); i++) { odd_j[i] = 2 * sup_j[i] + 1; }
+
+			// index (including mesh level and support index)
+			const std::array<std::vector<int>,2> & index = {lev_n, odd_j};
+
+			// compute hash key of the element in E and find it in f
+			int hash_key_E = hash.hash_key(index);
+			auto iter_E = this->dg.find(hash_key_E);
+			
+			if (iter_E == this->dg.end())
+			{
+				Element elem(lev_n, odd_j, all_bas, hash);
+				this->dg.insert({ elem.hash_key, elem });
+			}
+		}
+	}
+	
+	update_order_all_basis_in_dgmap();
+}
+
 // the key member function in the DGAdapt class to coarsen the dg solution
 void DGAdapt::coarsen()
 {
@@ -337,6 +425,31 @@ void DGAdapt::coarsen()
     update_leaf();
 
     update_order_all_basis_in_dgmap();
+}
+
+// NOT TESTED
+void DGAdapt::coarsen(const int max_mesh, const std::vector<int> dim)
+{
+	for (auto & iter : dg)
+	{
+		bool flag = false;
+		const std::vector<int> & mesh_level = iter.second.level;
+
+		// if mesh level is larger than the given mesh level, then flag is true
+		for (int i = 0; i < dim.size(); ++i)
+		{	
+			int d = dim[i];
+			if (mesh_level[d] > max_mesh) { flag = true; }
+		}
+
+		if (flag)
+		{
+			Element* elem = &(iter.second);
+			del_elem(*elem);
+		}
+	}
+
+	update_order_all_basis_in_dgmap();
 }
 
 bool DGAdapt::check_total_num_chd_par_equal() const

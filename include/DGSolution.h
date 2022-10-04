@@ -152,6 +152,12 @@ public:
 	/// set Element::ucoe_alpt in all elements to be zero
 	void set_ucoe_alpt_zero();
 
+	/// set Element::ucoe_alpt in all elements of a given component to be zero
+	void set_ucoe_alpt_zero(const int num_vec);
+
+	/// set Element::ucoe_alpt in the elements (which larger than max mesh level in given dimensions) to be be zero
+	void set_ucoe_alpt_zero(const int max_mesh, const std::vector<int> dim);
+
 	/// multiply Element::ucoe_alpt in all elements by a constant
 	void multiply_ucoe_alpt_by_const(const double constant);
 

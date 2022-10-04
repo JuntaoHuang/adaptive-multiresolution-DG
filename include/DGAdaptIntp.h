@@ -56,6 +56,8 @@ public:
 	// This is much faster than computing error using Gaussian-Legendre quadrature rule
 	// since we can make use of orthonormality property of DG basis
 	double get_L2_error_split_adaptive_intp_scalar(DGSolution & exact_solu) const;
+	
+	double get_L2_error_split_adaptive_intp_system(DGSolution & exact_solu, const int num_vec = 0) const;
 
 	// return number of refinements in adaptive interpolation
 	int refine_num() const { return refine_num_; };

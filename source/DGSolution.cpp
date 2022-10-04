@@ -1018,6 +1018,32 @@ void DGSolution::set_ucoe_alpt_zero()
 	}
 }
 
+void DGSolution::set_ucoe_alpt_zero(const int num_vec)
+{
+	for (auto & iter : dg)
+	{
+		iter.second.ucoe_alpt[num_vec].set_zero();
+	}
+}
+
+void DGSolution::set_ucoe_alpt_zero(const int max_mesh, const std::vector<int> dim)
+{
+	for (auto & iter : dg)
+	{
+		bool flag = false;
+		const std::vector<int> & lev = iter.second.level;
+		for (auto & d : dim)
+		{
+			if (lev[d] > max_mesh) { flag = true; }
+		}
+		
+		if (flag)
+		{
+			for (size_t i = 0; i < VEC_NUM; i++) { iter.second.ucoe_alpt[i].set_zero(); }
+		}
+	}
+}
+
 void DGSolution::multiply_ucoe_alpt_by_const(const double constant)
 {
 	for (auto & iter : dg)

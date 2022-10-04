@@ -114,6 +114,66 @@ double DGAdaptIntp::get_L2_error_split_adaptive_intp_scalar(DGSolution & exact_s
     return std::sqrt(abs(err2));
 }
 
+double DGAdaptIntp::get_L2_error_split_adaptive_intp_system(DGSolution & exact_solu, const int num_vec) const
+{
+    double err2 = 0.0;
+
+    // Add integral term of u^2
+    for (auto iter : exact_solu.dg)
+	{
+		std::vector< VecMultiD<double> > & ucoe_alpt = (iter.second).ucoe_alpt;
+		
+		for (size_t it0 = 0; it0 < iter.second.size_alpt(); it0++) // size_alpt() denotes the number of all the alpt basis used 
+		{
+			err2 += ucoe_alpt[num_vec].at(it0) * ucoe_alpt[num_vec].at(it0);
+		}		
+	}
+
+    // Add integral term of u_h^2
+    for (auto iter : dg)
+	{
+		std::vector< VecMultiD<double> > & ucoe_alpt = (iter.second).ucoe_alpt;
+		
+		for (size_t it0 = 0; it0 < iter.second.size_alpt(); it0++) // size_alpt() denotes the number of all the alpt basis used 
+		{
+			err2 += ucoe_alpt[num_vec].at(it0) * ucoe_alpt[num_vec].at(it0);
+		}		
+	}
+
+    // Add integral term of -2*u*u_h
+    for (auto iter : dg)
+	{
+        const int hash_key = iter.first;
+
+        std::vector< VecMultiD<double> > & ucoe_alpt = (iter.second).ucoe_alpt;
+
+        // find the same elements in exact_solu.dg
+        // using orthogonality
+        auto it = exact_solu.dg.find(hash_key);
+
+        if (it == exact_solu.dg.end()) continue;
+
+        std::vector< VecMultiD<double> > & ucoe_alpt_ext = (it->second).ucoe_alpt;
+
+        for (size_t it0 = 0; it0 < iter.second.size_alpt(); it0++) // size_alpt() denotes the number of all the alpt basis used 
+		{
+			err2 -= 2.0 * ucoe_alpt[num_vec].at(it0) * ucoe_alpt_ext[num_vec].at(it0);
+		}
+
+    }
+
+    ////////////////////////
+    if(err2 < 0.0)
+    
+    {
+        std::cout << "negative value in DGAdaptIntp::get_L2_error_split_adaptive_intp_scalar" << std::endl;
+        std::cout << "error is: " << err2 << std::endl;
+        return err2;
+    } 
+
+    return std::sqrt(abs(err2));
+}
+
 //------------------------------------------------------------
 // 
 // below are private member functions

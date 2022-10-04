@@ -173,7 +173,7 @@ int main(int argc, char *argv[])
 	// constant in global Lax-Friedrich flux	
 	const double lxf_alpha = 2.;
 	// wave speed in x and y direction
-	const std::vector<double> wave_speed{1., 1., 1.};
+	const std::vector<double> wave_speed{1., 2., 2.};
 
 	// begin time evolution
 	std::cout << "--- evolution started ---" << std::endl;
@@ -195,6 +195,71 @@ int main(int argc, char *argv[])
 		double dt = cfl/sum_c_dx;
 		dt = std::min( dt, final_time - curr_time );
 		
+		// --- part 2: predict by Euler forward
+		{
+			// before Euler forward, copy Element::ucoe_alpt to Element::ucoe_alpt_predict
+			dg_f.copy_ucoe_to_predict();
+
+			// dg_f.adapt_f_base_on_E(dg_BE);
+
+			// linear operator for f
+			HyperbolicAlpt linear_f(dg_f, oper_matx_alpt);
+			for (int d = 0; d < DIM; d++)
+			{
+				// flux integral
+				linear_f.assemble_matrix_flx_system(d, -1, {1, 0, 0}, lxf_alpha/2);
+				linear_f.assemble_matrix_flx_system(d, 1, {1, 0, 0}, -lxf_alpha/2);
+			}
+
+			ForwardEuler odeSolver_f(linear_f, dt);
+			odeSolver_f.init();
+
+			// --- step 1: update RHS for f ---
+			// Lagrange interpolation
+			LagrInterpolation interp_f(dg_f);
+			interp_f.interp_Vlasov_1D2V(dg_BE, fast_lagr_intp_f, fast_lagr_intp_BE);
+
+			// start computation of rhs
+			dg_f.set_rhs_zero();
+
+			// compute source for f
+			FastLagrInit fastLagr_source_f(dg_f, oper_matx_lagr);
+			double source_time = curr_time;
+			auto source_func_f = [&](std::vector<double> x, int i)->double
+			{
+				double x2 = x[0]; double v1 = x[1]; double v2 = x[2];
+				double pi = Const::PI; double t = source_time;				
+				if (i==0)
+				{
+					// return exp(t)*cos(2*pi*v2)*sin(2*pi*v1)*sin(2*pi*x2) - 2*pi*exp(t)*sin(2*pi*v1)*sin(2*pi*v2)*sin(2*pi*x2)*(exp(-t)*(2*pow(cos(2*pi*x2),2) - 1) - v1*cos(2*pi*x2)*(t + 1)) + 2*v2*pi*exp(t)*cos(2*pi*v2)*cos(2*pi*x2)*sin(2*pi*v1) + 2*pi*exp(t)*cos(2*pi*v1)*cos(2*pi*v2)*sin(2*pi*x2)*(exp(2*t)*sin(2*pi*x2) + v2*cos(2*pi*x2)*(t + 1));
+					return exp(t)*pow(cos(2*pi*v2),2)*pow(sin(2*pi*v1),2)*sin(2*pi*x2) + 2*v2*pi*exp(t)*pow(cos(2*pi*v2),2)*cos(2*pi*x2)*pow(sin(2*pi*v1),2) - 4*pi*exp(t)*cos(2*pi*v2)*pow(sin(2*pi*v1),2)*sin(2*pi*v2)*sin(2*pi*x2)*(exp(-t)*(2*pow(cos(2*pi*x2),2) - 1) - v1*cos(2*pi*x2)*(t + 1)) + 4*pi*exp(t)*cos(2*pi*v1)*pow(cos(2*pi*v2),2)*sin(2*pi*v1)*sin(2*pi*x2)*(exp(2*t)*sin(2*pi*x2) + v2*cos(2*pi*x2)*(t + 1));
+				}
+				else { return 0.; }
+			};
+			interp_f.source_from_lagr_to_rhs(source_func_f, fastLagr_source_f);
+
+			fast_rhs_lagr.rhs_vol_scalar();
+			fast_rhs_lagr.rhs_flx_intp_scalar();
+
+			// add to rhs in odeSolver_f
+			odeSolver_f.set_rhs_zero();
+			odeSolver_f.add_rhs_to_eigenvec();
+			odeSolver_f.add_rhs_matrix(linear_f);
+
+			odeSolver_f.step_stage(0);
+			
+			// copy ODESolver::ucoe to Element::ucoe_alpt for f and set ODESolver::rhs to be zero ---
+			odeSolver_f.final();
+		}
+
+		// --- part 3: refine f base on Element::ucoe_alpt
+		dg_f.refine();		
+		const int num_basis_refine = dg_f.size_basis_alpt();
+		const int max_mesh_level_refine = dg_f.max_mesh_level();
+
+		// after refine, copy Element::ucoe_alpt_predict back to Element::ucoe_alpt
+		dg_f.copy_predict_to_ucoe();
+
         // --- part 4: time evolution
 		// linear operator for f
 		HyperbolicAlpt linear_f(dg_f, oper_matx_alpt);
@@ -226,13 +291,14 @@ int main(int argc, char *argv[])
 		RK3SSP odeSolver_BE(linear_BE, dt);
 		odeSolver_BE.init();
 
+		// dg_BE.set_ucoe_alpt_zero(max_mesh_level_refine, {0});
         for ( int stage = 0; stage < odeSolver_f.num_stage; ++stage )
         {			
 			// --- step 1: update RHS for f ---
             // Lagrange interpolation
             LagrInterpolation interp_f(dg_f);
 			interp_f.interp_Vlasov_1D2V(dg_BE, fast_lagr_intp_f, fast_lagr_intp_BE);
-            
+
 			// start computation of rhs
             dg_f.set_rhs_zero();
 
@@ -317,6 +383,11 @@ int main(int argc, char *argv[])
 			odeSolver_BE.final();
         }
 
+		// --- part 5: coarsen
+		dg_f.coarsen();
+		const int num_basis_coarsen = dg_f.size_basis_alpt();
+		const int max_mesh_level_coarsen = dg_f.max_mesh_level();		
+
 		// add current time and increase time steps
 		curr_time += dt;
 		num_time_step ++;
@@ -328,6 +399,10 @@ int main(int argc, char *argv[])
 			std::cout << "num of time steps: " << num_time_step 
 					<< "; time step: " << dt 
 					<< "; elapsed time: " << curr_time << std::endl
+					<< "num of basis after refine: " << num_basis_refine
+					<< "; max mesh level after refine: " << max_mesh_level_refine << std::endl
+					<< "num of basis after coarsen: " << num_basis_coarsen
+					<< "; max mesh level after coarsen: " << max_mesh_level_coarsen << std::endl
 					<< std::endl << std::endl;
 		}		
 	}
@@ -338,44 +413,65 @@ int main(int argc, char *argv[])
 	std::cout << "num of time steps: " << num_time_step
 			<< "; num of basis: " << dg_f.size_basis_alpt() << std::endl;
 
-	// compute error for f = f(x, v, t) = sin(2*pi*(x+v+t))
-	auto final_func_f = [&](std::vector<double> x) -> double 
-	{	
+{
+	auto final_func_f = [&](std::vector<double> x, int i) -> double
+	{
 		double x2 = x[0]; double v1 = x[1]; double v2 = x[2];
 		double pi = Const::PI; double t = final_time;
-
-		// return sin(2*pi*(x2)) * sin(2*pi*(v1)) * cos(2*pi*(v2)) * exp(t);
 		return sin(2*pi*(x2)) * pow(sin(2*pi*(v1)), 2.) * pow(cos(2*pi*(v2)), 2.) * exp(t);
 	};
-	std::vector<double> err_f = dg_f.get_error_no_separable_system(final_func_f, num_gauss_pt_compute_error, 0);
-	std::cout << "L1, L2 and Linf error (for f) at final time: " << err_f[0] << ", " << err_f[1] << ", " << err_f[2] << std::endl;
+	double refine_eps_ext = 1e-6;
+	double coarsen_eta = -1;
+	DGAdaptIntp dg_solu_ext(sparse, N_init, NMAX, all_bas_alpt, all_bas_lagr, all_bas_herm, hash, refine_eps_ext, coarsen_eta, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp, oper_matx_lagr_lagr, oper_matx_herm_herm);
+	
+	LagrInterpolation interp_ext(dg_solu_ext);
+	dg_solu_ext.init_adaptive_intp_Lag(final_func_f, interp_ext);
 
-	// compute error for (B3, E1, E2)
-	auto final_func_B3 = [&](std::vector<double> x) -> double 
-	{
-		double x2 = x[0]; double pi = Const::PI; double t = final_time;		
-		return cos(2*pi*x2) * (t + 1);
-		// // exact solution to only Maxwell equation
-		// return 0.5 * (init_func_B3(x2+t, 0) + init_func_B3(x2-t, 0) + init_func_E1(x2+t, 0) - init_func_E1(x2-t, 0));
-	};
-	auto final_func_E1 = [&](std::vector<double> x) -> double 
-	{
-		double x2 = x[0]; double pi = Const::PI; double t = final_time;		
-		return sin(2*pi*x2) * exp(2*t);
-		// // exact solution to only Maxwell equation
-		// return 0.5 * (init_func_B3(x2+t, 0) - init_func_B3(x2-t, 0) + init_func_E1(x2+t, 0) + init_func_E1(x2-t, 0));
-	};
-	auto final_func_E2 = [&](std::vector<double> x) -> double 
-	{
-		double x2 = x[0]; double pi = Const::PI; double t = final_time;		
-		return cos(4*pi*x2) * exp(-t);
-	};
-	std::vector<double> err_B3 = dg_BE.get_error_no_separable_system(final_func_B3, num_gauss_pt_compute_error, 0);
-	std::vector<double> err_E1 = dg_BE.get_error_no_separable_system(final_func_E1, num_gauss_pt_compute_error, 1);
-	std::vector<double> err_E2 = dg_BE.get_error_no_separable_system(final_func_E2, num_gauss_pt_compute_error, 2);
-	std::cout << "L1, L2 and Linf error (for B3) at final time: " << err_B3[0] << ", " << err_B3[1] << ", " << err_B3[2] << std::endl;
-	std::cout << "L1, L2 and Linf error (for E1) at final time: " << err_E1[0] << ", " << err_E1[1] << ", " << err_E1[2] << std::endl;
-	std::cout << "L1, L2 and Linf error (for E2) at final time: " << err_E2[0] << ", " << err_E2[1] << ", " << err_E2[2] << std::endl;
+	FastLagrInit fastLagr_init_ext(dg_solu_ext, oper_matx_lagr);
+	fastLagr_init_ext.eval_ucoe_Alpt_Lagr();
+
+	double err = dg_f.get_L2_error_split_adaptive_intp_system(dg_solu_ext);
+	std::cout << "L2 error (for f) computed via adaptive interpolation at final time: " << err << std::endl;
+}
+
+	// // compute error for f = f(x, v, t) = sin(2*pi*(x+v+t))
+	// auto final_func_f = [&](std::vector<double> x) -> double 
+	// {	
+	// 	double x2 = x[0]; double v1 = x[1]; double v2 = x[2];
+	// 	double pi = Const::PI; double t = final_time;
+
+	// 	// return sin(2*pi*(x2)) * sin(2*pi*(v1)) * cos(2*pi*(v2)) * exp(t);
+	// 	return sin(2*pi*(x2)) * pow(sin(2*pi*(v1)), 2.) * pow(cos(2*pi*(v2)), 2.) * exp(t);
+	// };
+	// std::vector<double> err_f = dg_f.get_error_no_separable_system(final_func_f, num_gauss_pt_compute_error, 0);
+	// std::cout << "L1, L2 and Linf error (for f) at final time: " << err_f[0] << ", " << err_f[1] << ", " << err_f[2] << std::endl;
+
+	// // compute error for (B3, E1, E2)
+	// auto final_func_B3 = [&](std::vector<double> x) -> double 
+	// {
+	// 	double x2 = x[0]; double pi = Const::PI; double t = final_time;		
+	// 	return cos(2*pi*x2) * (t + 1);
+	// 	// // exact solution to only Maxwell equation
+	// 	// return 0.5 * (init_func_B3(x2+t, 0) + init_func_B3(x2-t, 0) + init_func_E1(x2+t, 0) - init_func_E1(x2-t, 0));
+	// };
+	// auto final_func_E1 = [&](std::vector<double> x) -> double 
+	// {
+	// 	double x2 = x[0]; double pi = Const::PI; double t = final_time;		
+	// 	return sin(2*pi*x2) * exp(2*t);
+	// 	// // exact solution to only Maxwell equation
+	// 	// return 0.5 * (init_func_B3(x2+t, 0) - init_func_B3(x2-t, 0) + init_func_E1(x2+t, 0) + init_func_E1(x2-t, 0));
+	// };
+	// auto final_func_E2 = [&](std::vector<double> x) -> double 
+	// {
+	// 	double x2 = x[0]; double pi = Const::PI; double t = final_time;		
+	// 	return cos(4*pi*x2) * exp(-t);
+	// };
+	// std::vector<double> err_B3 = dg_BE.get_error_no_separable_system(final_func_B3, num_gauss_pt_compute_error, 0);
+	// std::vector<double> err_E1 = dg_BE.get_error_no_separable_system(final_func_E1, num_gauss_pt_compute_error, 1);
+	// std::vector<double> err_E2 = dg_BE.get_error_no_separable_system(final_func_E2, num_gauss_pt_compute_error, 2);
+	// std::cout << "L1, L2 and Linf error (for B3) at final time: " << err_B3[0] << ", " << err_B3[1] << ", " << err_B3[2] << std::endl;
+	// std::cout << "L1, L2 and Linf error (for E1) at final time: " << err_E1[0] << ", " << err_E1[1] << ", " << err_E1[2] << std::endl;
+	// std::cout << "L1, L2 and Linf error (for E2) at final time: " << err_E2[0] << ", " << err_E2[1] << ", " << err_E2[2] << std::endl;
 
 	return 0;
 }
