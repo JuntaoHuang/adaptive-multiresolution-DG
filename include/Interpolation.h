@@ -74,6 +74,14 @@ class LagrInterpolation:
 		// this function will compute interpolation for 1D2V Vlasov equation
 		// f_t + v2 * f_x2 + (E1 + v2 * B3) * f_v1 + (E2 - v1 * B3) * f_v2 = 0
 		void interp_Vlasov_1D2V(DGSolution & dg_BE, FastLagrIntp & fastLagr_f, FastLagrIntp & fastLagr_BE);
+		
+		// overload for rescaled 1D2V Vlasov equation
+		// this function will compute interpolation for 1D2V Vlasov equation
+		// f_t + coe_x2 * f_x2 + coe_v1 * f_v1 + coe_v2 * f_v2 = 0
+		// coe_x2: function of v2
+		// coe_v1: function of (v2, E1, B3)
+		// coe_v2: function of (v1, E2, B3)
+		void interp_Vlasov_1D2V(DGSolution & dg_BE, std::function<double(double)> coe_x2, std::function<double(double, double, double)> coe_v1, std::function<double(double, double, double)> coe_v2, FastLagrIntp & fastLagr_f, FastLagrIntp & fastLagr_BE);
 
 		// Lagrange interpolation for a given function func(u), u is linear combination of Alpert basis
 		// this will update VecMultiD<double> fp_intp in class Element
