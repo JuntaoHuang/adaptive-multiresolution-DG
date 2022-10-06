@@ -59,6 +59,7 @@ protected:
 	void assemble_matrix_alpt(const double operatorCoefficient, const std::vector<const VecMultiD<double>*> & mat_1D_array, const int index_solu_variable = 0, const int index_test_variable = 0);
 
 	// overload, it can either take matrix coefficient or vector coefficient (diagonal)
+	// GENERATE CORRECT RESULTS, BUT NOT OPTIMIZED
     void assemble_matrix_system_alpt(const std::vector<std::vector<double>> & operatorCoefficient, const int dim, const VecMultiD<double> & mat_operator, const VecMultiD<double> & mat_mass, const std::string integral_type, const double coef = 1.);
     void assemble_matrix_system_alpt(const std::vector<double> & operatorCoefficient, const int dim, const VecMultiD<double> & mat_operator, const VecMultiD<double> & mat_mass, const std::string integral_type, const double coef = 1.);
 };

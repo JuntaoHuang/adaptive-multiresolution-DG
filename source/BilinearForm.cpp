@@ -202,6 +202,7 @@ void BilinearFormAlpt::assemble_matrix_alpt(const double operatorCoefficient, co
 	mat += matrix_local;
 }
 
+// GENERATE CORRECT RESULTS, BUT NOT OPTIMIZED
 void BilinearFormAlpt::assemble_matrix_system_alpt(const std::vector<std::vector<double>> & operatorCoefficient, const int dim, const VecMultiD<double> & mat_operator, const VecMultiD<double> & mat_mass, const std::string integral_type, const double coef)
 {
 	// first build a list of triplets, and then convert it to a SparseMatrix
@@ -288,7 +289,7 @@ void BilinearFormAlpt::assemble_matrix_system_alpt(const std::vector<std::vector
 }
 
 
-
+// GENERATE CORRECT RESULTS, BUT NOT OPTIMIZED
 void BilinearFormAlpt::assemble_matrix_system_alpt(const std::vector<double> & operatorCoefficient, const int dim, const VecMultiD<double> & mat_operator, const VecMultiD<double> & mat_mass, const std::string integral_type, const double coef)
 {
 	// first build a list of triplets, and then convert it to a SparseMatrix
@@ -643,7 +644,21 @@ void HyperbolicAlpt::assemble_matrix_vol_scalar(const int dim, const double coef
 
 void HyperbolicAlpt::assemble_matrix_vol_system(const int dim, const std::vector<std::vector<double>> & coefficient)
 {
-	assemble_matrix_system_alpt(coefficient, dim, oper_matx_alpt_ptr->u_vx, oper_matx_alpt_ptr->u_v, "vol");
+	// check that the size of coefficient matrix is correct
+	assert(coefficient.size() == dgsolution_ptr->VEC_NUM);
+	for (int i = 0; i < dgsolution_ptr->VEC_NUM; i++) { assert(coefficient[i].size() == dgsolution_ptr->VEC_NUM); }
+	
+	for (int i = 0; i < dgsolution_ptr->VEC_NUM; i++)
+	{
+		for (int j = 0; j < dgsolution_ptr->VEC_NUM; j++)
+		{
+			if (std::abs(coefficient[i][j]) < 1e-12) { continue; }
+			
+			assemble_matrix_alpt(coefficient[i][j], dim, oper_matx_alpt_ptr->u_vx, oper_matx_alpt_ptr->u_v, "vol", j, i);
+		}
+	}
+
+	// assemble_matrix_system_alpt(coefficient, dim, oper_matx_alpt_ptr->u_vx, oper_matx_alpt_ptr->u_v, "vol");
 }
 
 
@@ -683,27 +698,62 @@ void HJOutflowAlpt::assemble_matrix_flx_scalar(const int dim, const int sign, co
 
 void HyperbolicAlpt::assemble_matrix_flx_system(const int dim, const int sign, const std::vector<std::vector<double>> & coefficient, const double coef)
 {
-	if (sign == -1)
+	// check that the size of coefficient matrix is correct
+	assert(coefficient.size() == dgsolution_ptr->VEC_NUM);
+	for (int i = 0; i < dgsolution_ptr->VEC_NUM; i++) { assert(coefficient[i].size() == dgsolution_ptr->VEC_NUM); }	
+	
+	for (int i = 0; i < dgsolution_ptr->VEC_NUM; i++)
 	{
-		assemble_matrix_system_alpt(coefficient, dim, oper_matx_alpt_ptr->ulft_vjp, oper_matx_alpt_ptr->u_v, "flx", coef);
+		for (int j = 0; j < dgsolution_ptr->VEC_NUM; j++)
+		{
+			if (std::abs(coefficient[i][j] * coef) < 1e-12) { continue; }
+			
+			if (sign == -1)
+			{
+				assemble_matrix_alpt(coefficient[i][j] * coef, dim, oper_matx_alpt_ptr->ulft_vjp, oper_matx_alpt_ptr->u_v, "flx", j, i);
+			}
+			else if (sign == 1)
+			{
+				assemble_matrix_alpt(coefficient[i][j] * coef, dim, oper_matx_alpt_ptr->urgt_vjp, oper_matx_alpt_ptr->u_v, "flx", j, i);
+			}
+		}
 	}
-	else if (sign == 1)
-	{
-		assemble_matrix_system_alpt(coefficient, dim, oper_matx_alpt_ptr->urgt_vjp, oper_matx_alpt_ptr->u_v, "flx", coef);
-	}
+
+	// if (sign == -1)
+	// {
+	// 	assemble_matrix_system_alpt(coefficient, dim, oper_matx_alpt_ptr->ulft_vjp, oper_matx_alpt_ptr->u_v, "flx", coef);
+	// }
+	// else if (sign == 1)
+	// {
+	// 	assemble_matrix_system_alpt(coefficient, dim, oper_matx_alpt_ptr->urgt_vjp, oper_matx_alpt_ptr->u_v, "flx", coef);
+	// }
 }
 
 
 void HyperbolicAlpt::assemble_matrix_flx_system(const int dim, const int sign, const std::vector<double> & coefficient, const double coef)
 {
-	if (sign == -1)
+	assert(coefficient.size() == dgsolution_ptr->VEC_NUM);
+	for (int i = 0; i < dgsolution_ptr->VEC_NUM; i++)
 	{
-		assemble_matrix_system_alpt(coefficient, dim, oper_matx_alpt_ptr->ulft_vjp, oper_matx_alpt_ptr->u_v, "flx", coef);
+		if (std::abs(coefficient[i] * coef) < 1e-12) { continue; }
+
+		if (sign == -1)
+		{
+			assemble_matrix_alpt(coefficient[i] * coef, dim, oper_matx_alpt_ptr->ulft_vjp, oper_matx_alpt_ptr->u_v, "flx", i, i);
+		}
+		else if (sign == 1)
+		{
+			assemble_matrix_alpt(coefficient[i] * coef, dim, oper_matx_alpt_ptr->urgt_vjp, oper_matx_alpt_ptr->u_v, "flx", i, i);
+		}
 	}
-	else if (sign == 1)
-	{
-		assemble_matrix_system_alpt(coefficient, dim, oper_matx_alpt_ptr->urgt_vjp, oper_matx_alpt_ptr->u_v, "flx", coef);
-	}
+	// if (sign == -1)
+	// {
+	// 	assemble_matrix_system_alpt(coefficient, dim, oper_matx_alpt_ptr->ulft_vjp, oper_matx_alpt_ptr->u_v, "flx", coef);
+	// }
+	// else if (sign == 1)
+	// {
+	// 	assemble_matrix_system_alpt(coefficient, dim, oper_matx_alpt_ptr->urgt_vjp, oper_matx_alpt_ptr->u_v, "flx", coef);
+	// }
 }
 
 void DiffusionAlpt::assemble_matrix_scalar(const std::vector<double> & eqnCoefficient)
