@@ -373,6 +373,10 @@ protected:
 
     void transform_fucoe_to_rhs(const std::vector<const VecMultiD<double>*> & mat_1D, const std::vector<std::string> & operator_type, const int dim_interp, const double coefficient = 1.0, const int vec_index = 0);
 
+    // transform Element::ucoe_alpt to Element::rhs
+    // use this function to compute rhs for linear equations
+    void transform_ucoe_alpt_to_rhs(const std::vector<const VecMultiD<double>*> & mat_1D, const std::vector<std::string> & operator_type, const int dim_operator, const double coefficient = 1.0, const int vec_index = 0);
+
     // calculate rhs from coefficients of interpolation basis 
     // given transformation matrix (x and y directions) in 1D
     // LU-algorithm: 
@@ -397,12 +401,22 @@ private:
     void transform_multiD_partial_sum(const std::vector<const VecMultiD<double>*> & mat_1D_array, const std::vector<int> & dim_order_transform, 
             const std::vector<std::string> & LU_order_transform, const std::vector<std::string> & operator_type, const int dim_interp, const int vec_index, const double coefficient = 1.0);
 
+    void transform_1D_from_ucoe_alpt_to_rhs(const VecMultiD<double> & mat_1D, const std::string & LU, const std::string & operator_type, 
+            const std::vector<int> & size_trans_from, const std::vector<int> & size_trans_to, const int dim_transform_1D,
+            const bool is_first_step, const bool is_last_step, const int dim_interp, const int vec_index, const double coefficient = 1.0);
+
+    void transform_multiD_partial_sum_ucoe_alpt(const std::vector<const VecMultiD<double>*> & mat_1D_array, const std::vector<int> & dim_order_transform, 
+            const std::vector<std::string> & LU_order_transform, const std::vector<std::string> & operator_type, const int dim_operator, const int vec_index, const double coefficient = 1.0);
+
     // set Element::rhs to zero
     void set_rhs_zero(const int vec_index = 0);
 
     // copy value in fucoe_intp in dim_interp to ucoe_trans_from 
     void copy_fucoe_to_transfrom(const int dim_interp, const int vec_index = 0);
 
+    // copy value in ucoe_alpt to ucoe_trans_from
+    void copy_ucoe_alpt_to_transfrom(const int vec_index = 0);
+    
     // add value in Element::ucoe_trans_to to Element::rhs
     void add_transto_to_rhs(const int vec_index = 0);
 
@@ -526,6 +540,25 @@ private:
     OperatorMatrix1D<LagrBasis, AlptBasis>* const oper_matx_lagr_ptr;
 };
 
+/**
+ * @brief Fast algorithm for computing rhs for linear scalar hyperbolic equation in arbitrary dimension
+ * 
+ */
+class HyperbolicAlptRHS:
+    public FastRHS
+{
+public:
+    HyperbolicAlptRHS(DGSolution & dgsolution, OperatorMatrix1D<AlptBasis, AlptBasis> & oper_matx_alpt):
+        FastRHS(dgsolution), oper_matx_alpt_ptr(&oper_matx_alpt) {};
+    ~HyperbolicAlptRHS() {};
+
+    // flux integral (from penalty term in Lax-Friedrich flux)
+    // - lax_alpha / 2 * [u] * [v]
+    void rhs_flx_penalty_scalar(const std::vector<double> & lax_alpha);
+
+private:
+    OperatorMatrix1D<AlptBasis, AlptBasis>* const oper_matx_alpt_ptr;
+};
 
 // compute source term (given by Lagrange interpolation basis) using fast algorithm
 class SourceFastLagr:
