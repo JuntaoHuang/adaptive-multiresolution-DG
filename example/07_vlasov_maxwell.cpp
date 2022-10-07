@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
 	// computation parameter
 	int NMAX = 3;
 	int N_init = NMAX;
-	int is_init_sparse = 0;			// use full grid (0) or sparse grid (1) when initialization
+	int is_init_sparse = 1;			// use full grid (0) or sparse grid (1) when initialization
 	double final_time = 0.1;
 	double cfl = 0.1;
 	std::string boundary_type = "period";	// this variable will be used in constructors of class OperatorMatrix1D
@@ -142,7 +142,7 @@ int main(int argc, char *argv[])
 	{
 		if (d == 0) { return 1.; }
 		else if (d == 1) { return (const_delta * exp(-pow(const_Vc*(2*x-1)-const_v01, 2)/const_beta) + (1-const_delta) * exp(-pow(const_Vc*(2*x-1)+const_v02, 2)/const_beta)); }
-		else if (d == 2) { return 1/(Const::PI*const_beta) * exp(-pow(const_Vc*(2*x-1), 2)/const_beta); }
+		else if (d == 2) { return 1./(Const::PI*const_beta) * exp(-pow(const_Vc*(2*x-1), 2)/const_beta); }
 	};
 	auto init_func_zero = [](double x, int d) { return 0.; };
 	std::vector<std::function<double(double, int)>> init_func_f{init_func_1, init_func_zero, init_func_zero};
@@ -173,6 +173,15 @@ int main(int argc, char *argv[])
 	FastLagrIntp fast_lagr_intp_f(dg_f, interp_lagr.Lag_pt_Alpt_1D, interp_lagr.Lag_pt_Alpt_1D_d1);
 	FastLagrIntp fast_lagr_intp_BE(dg_BE, interp_lagr.Lag_pt_Alpt_1D, interp_lagr.Lag_pt_Alpt_1D_d1);
 
+	// linear operator for (B3, E1, E2)
+	HyperbolicAlpt linear_BE(dg_BE, oper_matx_alpt);	
+	int d = 0;	// Maxwell equation only in x2 dimension
+	// volume integral
+	linear_BE.assemble_matrix_vol_system(d, {{0, -1/const_L, 0}, {-1/const_L, 0, 0}, {0, 0, 0}});
+	// flux integral, upwind flux
+	linear_BE.assemble_matrix_flx_system(d, -1, {{0.5/const_L, -0.5/const_L, 0}, {-0.5/const_L, 0.5/const_L, 0}, {0, 0, 0}});
+	linear_BE.assemble_matrix_flx_system(d, 1, {{-0.5/const_L, -0.5/const_L, 0}, {-0.5/const_L, -0.5/const_L, 0}, {0, 0, 0}});
+
 	// begin time evolution
 	std::cout << "--- evolution started ---" << std::endl;
 	Timer record_time;
@@ -193,7 +202,7 @@ int main(int argc, char *argv[])
 		const double max_abs_B3 = max_abs_BE[0];
 		const double max_abs_E1 = max_abs_BE[1];
 		const double max_abs_E2 = max_abs_BE[2];
-std::cout << max_abs_B3 << " " << max_abs_E1 << " " << max_abs_E2 << std::endl;
+
 		// wave speed in x and v direction
 		const std::vector<double> wave_speed{const_Vc/const_L, (max_abs_E1 + const_Vc * max_abs_B3)/(2.*const_Vc), (max_abs_E2 + const_Vc * max_abs_B3)/(2.*const_Vc)};
 
@@ -207,21 +216,17 @@ std::cout << max_abs_B3 << " " << max_abs_E1 << " " << max_abs_E2 << std::endl;
 		for (size_t d = 0; d < DIM; d++) { sum_c_dx += std::abs(wave_speed[d]) * std::pow(2., max_mesh[d]); }
 		double dt = cfl/sum_c_dx;
 		dt = std::min( dt, final_time - curr_time );
-		
+
 		// --- part 2: predict by Euler forward
 		{
 			// before Euler forward, copy Element::ucoe_alpt to Element::ucoe_alpt_predict
 			dg_f.copy_ucoe_to_predict();
 
-			// dg_f.adapt_f_base_on_E(dg_BE);
-
-			// linear operator for f
+			// linear operator for f (only flux integral)
 			HyperbolicAlpt linear_f(dg_f, oper_matx_alpt);
 			for (int d = 0; d < DIM; d++)
 			{
-				// flux integral
-				linear_f.assemble_matrix_flx_system(d, -1, {1, 0, 0}, lxf_alpha[d]/2);
-				linear_f.assemble_matrix_flx_system(d, 1, {1, 0, 0}, -lxf_alpha[d]/2);
+				linear_f.assemble_matrix_flx_jump_system(d, {-lxf_alpha[d]/2, 0, 0});
 			}
 
 			ForwardEuler odeSolver_f(linear_f, dt);
@@ -258,25 +263,12 @@ std::cout << max_abs_B3 << " " << max_abs_E1 << " " << max_abs_E2 << std::endl;
 		dg_f.copy_predict_to_ucoe();
 
         // --- part 4: time evolution
-		// linear operator for f
+		// linear operator for f (only flux integral)
 		HyperbolicAlpt linear_f(dg_f, oper_matx_alpt);
 		for (int d = 0; d < DIM; d++)
-		{
-			// flux integral
-			linear_f.assemble_matrix_flx_system(d, -1, {1, 0, 0}, lxf_alpha[d]/2);
-			linear_f.assemble_matrix_flx_system(d, 1, {1, 0, 0}, -lxf_alpha[d]/2);
+		{			
+			linear_f.assemble_matrix_flx_jump_system(d, {-lxf_alpha[d]/2, 0, 0});
 		}
-
-		// linear operator for (B3, E1, E2)
-		HyperbolicAlpt linear_BE(dg_BE, oper_matx_alpt);
-		
-		int d = 0;	// Maxwell equation only in x2 dimension
-		// volume integral
-		linear_BE.assemble_matrix_vol_system(d, {{0, -1/const_L, 0}, {-1/const_L, 0, 0}, {0, 0, 0}});
-
-		// flux integral, upwind flux
-		linear_BE.assemble_matrix_flx_system(d, -1, {{0.5/const_L, -0.5/const_L, 0}, {-0.5/const_L, 0.5/const_L, 0}, {0, 0, 0}});
-		linear_BE.assemble_matrix_flx_system(d, 1, {{-0.5/const_L, -0.5/const_L, 0}, {-0.5/const_L, -0.5/const_L, 0}, {0, 0, 0}});
 
         RK3SSP odeSolver_f(linear_f, dt);
         odeSolver_f.init();
@@ -321,7 +313,7 @@ std::cout << max_abs_B3 << " " << max_abs_E1 << " " << max_abs_E2 << std::endl;
 
 			// compute Maxwell
 			odeSolver_BE.add_rhs_matrix(linear_BE);
-			
+
 			odeSolver_BE.step_stage(stage);
 
 			// --- step 3: copy ODESolver::ucoe to Element::ucoe_alpt for f and set ODESolver::rhs to be zero ---
@@ -361,5 +353,10 @@ std::cout << max_abs_B3 << " " << max_abs_E1 << " " << max_abs_E2 << std::endl;
 	std::cout << "num of time steps: " << num_time_step
 			<< "; num of basis: " << dg_f.size_basis_alpt() << std::endl;
 
+// // validate correctness
+// std::vector<int> zero_derivative(DIM, 0);
+// std::vector<double> x(DIM, 0.3478);
+// double val_f = dg_f.val(x, zero_derivative)[0];
+// std::cout << val_f << std::endl;
 	return 0;
 }
