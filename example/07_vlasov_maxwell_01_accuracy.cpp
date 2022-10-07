@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
 	// computation parameter
 	int NMAX = 3;
 	int N_init = NMAX;
-	int is_init_sparse = 0;			// use full grid (0) or sparse grid (1) when initialization
+	int is_init_sparse = 1;			// use full grid (0) or sparse grid (1) when initialization
 	double final_time = 0.1;
 	double cfl = 0.1;
 	std::string boundary_type = "period";	// this variable will be used in constructors of class OperatorMatrix1D
@@ -175,6 +175,15 @@ int main(int argc, char *argv[])
 	// wave speed in x and y direction
 	const std::vector<double> wave_speed{1., 2., 2.};
 
+	// linear operator for (B3, E1, E2)
+	HyperbolicAlpt linear_BE(dg_BE, oper_matx_alpt);	
+	int d = 0;	// Maxwell equation only in x2 dimension
+	// volume integral
+	linear_BE.assemble_matrix_vol_system(d, {{0, -1, 0}, {-1, 0, 0}, {0, 0, 0}});
+	// flux integral, upwind flux
+	linear_BE.assemble_matrix_flx_system(d, -1, {{0.5, -0.5, 0}, {-0.5, 0.5, 0}, {0, 0, 0}});
+	linear_BE.assemble_matrix_flx_system(d, 1, {{-0.5, -0.5, 0}, {-0.5, -0.5, 0}, {0, 0, 0}});
+
 	// begin time evolution
 	std::cout << "--- evolution started ---" << std::endl;
 	Timer record_time;
@@ -200,15 +209,11 @@ int main(int argc, char *argv[])
 			// before Euler forward, copy Element::ucoe_alpt to Element::ucoe_alpt_predict
 			dg_f.copy_ucoe_to_predict();
 
-			// dg_f.adapt_f_base_on_E(dg_BE);
-
-			// linear operator for f
+			// linear operator for f  (only flux integral)
 			HyperbolicAlpt linear_f(dg_f, oper_matx_alpt);
 			for (int d = 0; d < DIM; d++)
-			{
-				// flux integral
-				linear_f.assemble_matrix_flx_system(d, -1, {1, 0, 0}, lxf_alpha/2);
-				linear_f.assemble_matrix_flx_system(d, 1, {1, 0, 0}, -lxf_alpha/2);
+			{				
+				linear_f.assemble_matrix_flx_jump_system(d, {-lxf_alpha/2, 0, 0});
 			}
 
 			ForwardEuler odeSolver_f(linear_f, dt);
@@ -261,29 +266,12 @@ int main(int argc, char *argv[])
 		dg_f.copy_predict_to_ucoe();
 
         // --- part 4: time evolution
-		// linear operator for f
+		// linear operator for f (only flux integral)
 		HyperbolicAlpt linear_f(dg_f, oper_matx_alpt);
-		// std::vector<std::vector<double>> coefficient_d0 = {{1, 0, 0}, {0, 0, 0}, {0, 0, 0}};
-		// std::vector<std::vector<double>> coefficient_d1 = {{2, 0, 0}, {0, 0, 0}, {0, 0, 0}};
-		// std::vector<std::vector<double>> coefficient_d2 = {{2, 0, 0}, {0, 0, 0}, {0, 0, 0}};
-		// std::vector<std::vector<std::vector<double>>> coefficient = {coefficient_d0, coefficient_d1, coefficient_d2};
 		for (int d = 0; d < DIM; d++)
-		{
-			// flux integral
-			linear_f.assemble_matrix_flx_system(d, -1, {1, 0, 0}, lxf_alpha/2);
-			linear_f.assemble_matrix_flx_system(d, 1, {1, 0, 0}, -lxf_alpha/2);
+		{			
+			linear_f.assemble_matrix_flx_jump_system(d, {-lxf_alpha/2, 0, 0});
 		}
-
-		// linear operator for (B3, E1, E2)
-		HyperbolicAlpt linear_BE(dg_BE, oper_matx_alpt);
-		
-		int d = 0;	// Maxwell equation only in x2 dimension
-		// volume integral
-		linear_BE.assemble_matrix_vol_system(d, {{0, -1, 0}, {-1, 0, 0}, {0, 0, 0}});
-
-		// flux integral, upwind flux
-		linear_BE.assemble_matrix_flx_system(d, -1, {{0.5, -0.5, 0}, {-0.5, 0.5, 0}, {0, 0, 0}});
-		linear_BE.assemble_matrix_flx_system(d, 1, {{-0.5, -0.5, 0}, {-0.5, -0.5, 0}, {0, 0, 0}});
 
         RK3SSP odeSolver_f(linear_f, dt);
         odeSolver_f.init();
@@ -398,7 +386,7 @@ int main(int argc, char *argv[])
 			record_time.time("running time");
 			std::cout << "num of time steps: " << num_time_step 
 					<< "; time step: " << dt 
-					<< "; elapsed time: " << curr_time << std::endl
+					<< "; current time: " << curr_time << std::endl
 					<< "num of basis after refine: " << num_basis_refine
 					<< "; max mesh level after refine: " << max_mesh_level_refine << std::endl
 					<< "num of basis after coarsen: " << num_basis_coarsen

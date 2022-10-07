@@ -150,6 +150,8 @@ public:
 	// coefficient： matrix of size VEC_NUM * VEC_NUM, [i][j] means the coefficient of j-th unknown in i-th equation
 	void assemble_matrix_flx_system(const int dim, const int sign, const std::vector<std::vector<double>> & coefficient, const double coef = 1.);
 	void assemble_matrix_flx_system(const int dim, const int sign, const std::vector<double> & coefficient, const double coef = 1.);
+	// flux integral of [u] * [v]
+	void assemble_matrix_flx_jump_system(const int dim, const std::vector<double> & coefficient);
 
 
 	// volume integral of c * u * v_x

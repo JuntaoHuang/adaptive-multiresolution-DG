@@ -756,6 +756,18 @@ void HyperbolicAlpt::assemble_matrix_flx_system(const int dim, const int sign, c
 	// }
 }
 
+void HyperbolicAlpt::assemble_matrix_flx_jump_system(const int dim, const std::vector<double> & coefficient)
+{
+	assert(coefficient.size() == dgsolution_ptr->VEC_NUM);
+
+	for (int i = 0; i < dgsolution_ptr->VEC_NUM; i++)
+	{
+		if (std::abs(coefficient[i]) < 1e-12) { continue; }
+
+		assemble_matrix_alpt(coefficient[i], dim, oper_matx_alpt_ptr->ujp_vjp, oper_matx_alpt_ptr->u_v, "flx", i, i);
+	}
+}
+
 void DiffusionAlpt::assemble_matrix_scalar(const std::vector<double> & eqnCoefficient)
 {
 	assert(eqnCoefficient.size() == dgsolution_ptr->DIM);
