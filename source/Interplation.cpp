@@ -4354,29 +4354,19 @@ void LagrInterpolation::interp_Vlasov_1D1V(DGSolution & E, std::function<double(
 void LagrInterpolation::interp_Vlasov_1D2V(DGSolution & dg_BE, FastLagrIntp & fastLagr_f, FastLagrIntp & fastLagr_BE)
 {
 	// step 1: fast transform, f alpert coefficients -> point values (store in Element::up_intp in f)
-	fastLagr_f.eval_up_Lagr();
+	// only do transformation in the first component
+	fastLagr_f.eval_up_Lagr(0);
 
-	// step 2: copy Element::ucoe_alpt in f to Element::ucoe_alpt_other in f
-	dgsolution_ptr->copy_ucoe_to_other();
+	// step 2: fast transform, E alpert coefficients -> point values (store in Element::up_intp in E)
+	fastLagr_BE.eval_up_Lagr();
 
-	// step 3: copy Element::up_intp in f to Element::up_intp_other in f
-	dgsolution_ptr->copy_up_intp_to_other();
-
-	// step 4: copy E alpert coefficients to f (store in Element::ucoe_alpt in f)
+	// step 3: copy Element::up_intp in E to Element::up_intp_other in f
 	const std::vector<int> num_vec_f{0, 1, 2};
 	const std::vector<int> num_vec_E{0, 1, 2};	// dg_BE = {B3, E1, E2}
 	const std::vector<int> vel_dim_f{1, 2};
-	dgsolution_ptr->copy_ucoe_alpt_to_f(dg_BE, num_vec_f, num_vec_E, vel_dim_f);
+	dgsolution_ptr->copy_up_intp_to_f(dg_BE, num_vec_f, num_vec_E, vel_dim_f);
 	
-	// step 5: fast transform, f alpert coefficients -> point values (this is actually point value for E)
-	fastLagr_f.eval_up_Lagr();
-
-	// step 6:  exchange Element::ucoe_alpt in f and Element::ucoe_alpt_other in f
-	// 			exchange Element::up_intp in f and Element::up_intp_other in f
-	dgsolution_ptr->exchange_ucoe_and_other();
-	dgsolution_ptr->exchange_up_intp_and_other();
-
-	// step 7: compute v * f and E * f point value
+	// step 4: compute v * f and E * f point value
 	for (auto it = dgsolution_ptr->dg.begin(); it != dgsolution_ptr->dg.end(); it++)
 	{
 		const std::vector<int> & l = it->second.level;
@@ -4425,7 +4415,7 @@ void LagrInterpolation::interp_Vlasov_1D2V(DGSolution & dg_BE, FastLagrIntp & fa
 		}
 	}
 
-	// step 8: transform point value to interpolation coefficients
+	// step 5: transform point value to interpolation coefficients
 	std::vector< std::vector<bool> > is_intp;
 	is_intp.push_back(std::vector<bool>(DIM, true));	// interpolation for the 1st vec_num in all dimensions
 	is_intp.push_back(std::vector<bool>(DIM, false));	// no interpolation for the 2nd vec_num in all dimensions

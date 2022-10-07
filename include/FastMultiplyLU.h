@@ -110,9 +110,13 @@ protected:
      * @brief transform Element::ucoe_alpt to Element::up_intp in any dimension
      */
     void transform_ucoealpt_to_upintp(const std::vector<const VecMultiD<double>*> & alpt_basis_pt_1D);
+    // only transform a given unknown variable component
+    void transform_ucoealpt_to_upintp(const std::vector<const VecMultiD<double>*> & alpt_basis_pt_1D, const int vec_index);
 
     // overload for matrix are the same
     void transform_ucoealpt_to_upintp(const VecMultiD<double> & alpt_basis_pt_1D);
+    // only transform a given unknown variable component
+    void transform_ucoealpt_to_upintp(const VecMultiD<double> & alpt_basis_pt_1D, const int vec_index);
 
 private:
     // copy value in ucoe_alpt to ucoe_trans_from
@@ -140,7 +144,9 @@ private:
      * @param is_last_step      if true, denote the last step
      */
     void transform_1D_from_ucoealpt_to_upintp(const VecMultiD<double> & mat_1D, const std::string LU, const std::vector<int> & size_trans_from, const std::vector<int> & size_trans_to, const int dim, const bool is_first_step, const bool is_last_step);
-
+    // only transform a given unknown variable component    
+    void transform_1D_from_ucoealpt_to_upintp(const VecMultiD<double> & mat_1D, const std::string LU, const std::vector<int> & size_trans_from, const std::vector<int> & size_trans_to, const int dim, const bool is_first_step, const bool is_last_step, const int vec_index);
+    
     /**
      * @brief Do multidimension transformation in a dimension by dimension approach.
      * 
@@ -155,6 +161,8 @@ private:
      *          and last do transformation in z direction with upper part of mat_1D_z
      */
     void transform_multiD_partial_sum(const std::vector<const VecMultiD<double>*> & mat_1D_array, const std::vector<int> & dim_order_transform, const std::vector<std::string> & LU);
+    // only transform a given unknown variable component
+    void transform_multiD_partial_sum(const std::vector<const VecMultiD<double>*> & mat_1D_array, const std::vector<int> & dim_order_transform, const std::vector<std::string> & LU, const int vec_index);
 };
 
 
@@ -173,6 +181,10 @@ public:
 
     // transform Element::ucoe_alpt to Element::up_intp
     void eval_up_Lagr();
+
+    // transform Element::ucoe_alpt[vec_index] to Element::up_intp[vec_index]
+    // i.e. only for a given unknown variable component
+    void eval_up_Lagr(const int vec_index);
 
     // transform Element::ucoe_alpt to Element::u_xd0_intp ---> u_xd0 means that derivative along xd0 direction
     void eval_der_up_Lagr(const int d0);

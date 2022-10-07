@@ -140,6 +140,9 @@ public:
 	 */
 	void copy_ucoe_alpt_to_f(DGSolution & E, const std::vector<int> & num_vec_f, const std::vector<int> & num_vec_E, const std::vector<int> & vel_dim_f);
 
+	// copy Element::up_intp in dg_E to Element::up_intp_other in dg_f
+	void copy_up_intp_to_f(DGSolution & E, const std::vector<int> & num_vec_f, const std::vector<int> & num_vec_E, const std::vector<int> & vel_dim_f);
+
 	// ------------------------------------------------------------------------
 	// copy or set zero to coefficients in all the elements
 	// ------------------------------------------------------------------------

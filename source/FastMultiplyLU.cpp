@@ -396,12 +396,39 @@ void FastInterpolation::transform_ucoealpt_to_upintp(const std::vector<const Vec
 	}
 }
 
+void FastInterpolation::transform_ucoealpt_to_upintp(const std::vector<const VecMultiD<double>*> & alpt_basis_pt_1D, const int vec_index)
+{
+	const int dim = dgsolution_ptr->DIM;
+
+	// clear Element::up_intp to zero
+	upintp_set_zero(vec_index);
+
+	std::vector<std::vector<int>> dim_order_transform;
+	std::vector<std::vector<std::string>> LU_order_transform;
+	generate_transform_order(dim, dim_order_transform, LU_order_transform);
+
+	//	omp_set_num_threads(dim_order_transform.size());
+	//#pragma omp parallel for
+	for (int sum_num = 0; sum_num < dim_order_transform.size(); sum_num++)
+	{
+		transform_multiD_partial_sum(alpt_basis_pt_1D, dim_order_transform[sum_num], LU_order_transform[sum_num], vec_index);
+	}
+}
+
 void FastInterpolation::transform_ucoealpt_to_upintp(const VecMultiD<double> & alpt_basis_pt_1D)
 {
 	const int dim = dgsolution_ptr->DIM;
 	const std::vector<const VecMultiD<double>*> alpt_basis_pt_1D_vec(dim, &alpt_basis_pt_1D);
 
 	transform_ucoealpt_to_upintp(alpt_basis_pt_1D_vec);
+}
+
+void FastInterpolation::transform_ucoealpt_to_upintp(const VecMultiD<double> & alpt_basis_pt_1D, const int vec_index)
+{
+	const int dim = dgsolution_ptr->DIM;
+	const std::vector<const VecMultiD<double>*> alpt_basis_pt_1D_vec(dim, &alpt_basis_pt_1D);
+
+	transform_ucoealpt_to_upintp(alpt_basis_pt_1D_vec, vec_index);
 }
 
 void FastInterpolation::transform_1D_from_ucoealpt_to_upintp(const VecMultiD<double> & mat_1D, const std::string LU, const std::vector<int> & size_trans_from, const std::vector<int> & size_trans_to, const int dim, const bool is_first_step, const bool is_last_step)
@@ -412,13 +439,13 @@ void FastInterpolation::transform_1D_from_ucoealpt_to_upintp(const VecMultiD<dou
 
 	//omp_set_num_threads(Element::VEC_NUM);
 	//omp_set_num_threads(Element::VEC_NUM);
-#pragma omp parallel num_threads(Element::VEC_NUM) 
+// #pragma omp parallel num_threads(Element::VEC_NUM) 
 	{
 		//#pragma omp single
 		//		{
 		//			std::cout << omp_get_num_threads() << std::endl;
 		//		}
-#pragma omp for
+// #pragma omp for
 		for (int vec_index = 0; vec_index < Element::VEC_NUM; vec_index++)
 		{
 			/*if(Element::is_intp[vec_index][])*/
@@ -437,6 +464,27 @@ void FastInterpolation::transform_1D_from_ucoealpt_to_upintp(const VecMultiD<dou
 			if (is_last_step) { add_transto_to_upintp(vec_index); }
 		}
 	}
+}
+
+void FastInterpolation::transform_1D_from_ucoealpt_to_upintp(const VecMultiD<double> & mat_1D, const std::string LU, const std::vector<int> & size_trans_from, const std::vector<int> & size_trans_to, const int dim, const bool is_first_step, const bool is_last_step, const int vec_index)
+{
+	// transform from alpert basis to interpolation basis
+	const int pmax_trans_from = Element::PMAX_alpt;
+	const int pmax_trans_to = Element::PMAX_intp;
+
+	resize_ucoe_transfrom(size_trans_from, vec_index);
+
+	// if first step, then copy value in ucoe_alpt to ucoe_trans_from
+	// else, copy value ucoe_trans_to to ucoe_trans_from
+	if (is_first_step) { copy_ucoealpt_to_transfrom(vec_index); }
+	else { copy_transto_to_transfrom(vec_index); }
+
+	resize_ucoe_transto(size_trans_to, vec_index);
+
+	// do transformation in 1D
+	transform_1D(mat_1D, LU, "vol", dim, pmax_trans_from, pmax_trans_to, 1.0, vec_index, vec_index);
+
+	if (is_last_step) { add_transto_to_upintp(vec_index); }
 }
 
 void FastInterpolation::transform_multiD_partial_sum(const std::vector<const VecMultiD<double>*> & mat_1D_array, const std::vector<int> & dim_order_transform, const std::vector<std::string> & LU_order_transform)
@@ -458,6 +506,28 @@ void FastInterpolation::transform_multiD_partial_sum(const std::vector<const Vec
 	for (size_t d = 0; d < dim; d++)
 	{
 		transform_1D_from_ucoealpt_to_upintp(*(mat_1D_array[dim_order_transform[d]]), LU_order_transform[d], series_vec[d], series_vec[d + 1], dim_order_transform[d], is_first_step[d], is_last_step[d]);
+	}
+}
+
+void FastInterpolation::transform_multiD_partial_sum(const std::vector<const VecMultiD<double>*> & mat_1D_array, const std::vector<int> & dim_order_transform, const std::vector<std::string> & LU_order_transform, const int vec_index)
+{
+	// transform from alpert basis to interpolation basis
+	const int pmax_trans_from = Element::PMAX_alpt;
+	const int pmax_trans_to = Element::PMAX_intp;
+	const int dim = Element::DIM;
+
+	std::vector<std::vector<int>> series_vec = series_vec_transform_size(pmax_trans_from + 1, pmax_trans_to + 1, dim, dim_order_transform);
+
+	// variable control first or last step
+	std::vector<bool> is_first_step(dim, false);
+	is_first_step[0] = true;
+
+	std::vector<bool> is_last_step(dim, false);
+	is_last_step[dim - 1] = true;
+
+	for (size_t d = 0; d < dim; d++)
+	{
+		transform_1D_from_ucoealpt_to_upintp(*(mat_1D_array[dim_order_transform[d]]), LU_order_transform[d], series_vec[d], series_vec[d + 1], dim_order_transform[d], is_first_step[d], is_last_step[d], vec_index);
 	}
 }
 
@@ -707,6 +777,11 @@ FastLagrIntp::FastLagrIntp(DGSolution & dgsolution, const std::vector<std::vecto
 void FastLagrIntp::eval_up_Lagr()
 {
 	transform_ucoealpt_to_upintp(alpt_basis_Lagr_pt);
+}
+
+void FastLagrIntp::eval_up_Lagr(const int vec_index)
+{
+	transform_ucoealpt_to_upintp(alpt_basis_Lagr_pt, vec_index);
 }
 
 void FastLagrIntp::eval_der_up_Lagr(const int d0)

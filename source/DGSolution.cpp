@@ -985,6 +985,49 @@ void DGSolution::copy_ucoe_alpt_to_f(DGSolution & E, const std::vector<int> & nu
 	}
 }
 
+void DGSolution::copy_up_intp_to_f(DGSolution & E, const std::vector<int> & num_vec_f, const std::vector<int> & num_vec_E, const std::vector<int> & vel_dim_f)
+{
+	// check size of copy number of vector are the same for f and E
+	assert(num_vec_f.size() == num_vec_E.size());
+	const int copy_num_vec_size = num_vec_f.size();
+
+	// loop over all the elements in f
+	for (auto & iter_f : this->dg)
+	{
+		std::vector<int> level_E = iter_f.second.level;
+		std::vector<int> suppt_E = iter_f.second.suppt;
+
+		// velocity dimension should be zero level for E
+		for (auto const vd : vel_dim_f)
+		{
+			level_E[vd] = 0;
+			suppt_E[vd] = 1;
+		}
+
+		// index (including mesh level and support index)
+		const std::array<std::vector<int>,2> & index_E = {level_E, suppt_E};
+
+		// compute hash key of the element in f and find it in E
+		int hash_key_E = hash.hash_key(index_E);
+		auto iter_E = E.dg.find(hash_key_E);
+	
+		// if the corresponding element is in f dg solution
+		// then copy point value of E to f
+		if (iter_E != E.dg.end())
+		{
+			for(int i = 0; i < copy_num_vec_size; i++)
+			{
+				iter_f.second.up_intp_other[num_vec_f[i]] = iter_E->second.up_intp[num_vec_E[i]];
+			}
+		}
+		else
+		{
+			assert("error: not find element in E");
+			exit(1);
+		}
+	}
+}
+
 void DGSolution::set_rhs_zero()
 {
 	for (auto & iter : dg)
