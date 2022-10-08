@@ -20,6 +20,9 @@ public:
     // output numerical solution in 3D cut in 2D
     void output_num_cut_2D(const std::string & file_name, const double cut_x, const int cut_dim) const;
 
+    // output numerical solution in 3D cut in 1D
+    void output_num_3D_cut_1D(const std::string & file_name, const std::vector<double> & cut_x, const std::vector<int> & cut_dim, const int vec_index) const;
+
     // output numerical and exact solution in 2D
     // format: x1, x2, ..., xdim, u_num, u_exa
     // first loop over x1, then inside loop over x2, ..., last loop over xdim

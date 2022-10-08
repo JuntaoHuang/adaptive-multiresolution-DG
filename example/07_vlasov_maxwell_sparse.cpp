@@ -24,8 +24,6 @@
 
 int main(int argc, char *argv[])
 {
-	omp_set_num_threads(10);
-
 	// constant variable
 	const int DIM = 3;
 	const int VEC_NUM = 3;
@@ -78,20 +76,18 @@ int main(int argc, char *argv[])
 
 	// output info in screen every time steps
 	int output_time_interval = 100;
-
-	// num of gauss points in computing error
-	int num_gauss_pt_compute_error = 3;
+	
+	// num of threads in openmp
+	int omp_threads = 10;
 
 	OptionsParser args(argc, argv);
 	args.AddOption(&NMAX, "-NM", "--max-mesh-level", "Maximum mesh level");
 	args.AddOption(&N_init, "-N0", "--initial-mesh-level", "Mesh level in initialization");
 	args.AddOption(&is_init_sparse, "-s", "--sparse-grid-initial", "Use full grid (0) or sparse grid (1 by default) in initialization");
 	args.AddOption(&final_time, "-tf", "--final-time", "Final time; start time is 0.");
+	args.AddOption(&omp_threads, "-omp", "--openmp-threads", "number of threads in openmp (10 by default)");
 	args.AddOption(&cfl, "-cfl", "--cfl-number", "CFL number");	
-	args.AddOption(&refine_eps, "-r", "--refine-epsilon", "refine parameter epsilon");
-	args.AddOption(&coarsen_eta, "-c", "--coarsen-eta", "coarsen parameter eta");
 	args.AddOption(&output_time_interval, "-p", "--print-every-time-step", "every time steps output info in screen");
-	args.AddOption(&num_gauss_pt_compute_error, "-g", "--num-gauss-pt-compute-error", "number of gauss points in computing error");
 
 	args.Parse();
 	if (!args.Good())
@@ -104,6 +100,8 @@ int main(int argc, char *argv[])
 	// check mesh level in initialization should be less or equal to maximum mesh level
 	if (N_init>NMAX) { std::cout << "Mesh level in initialization should not be larger than Maximum mesh level" << std::endl; return 1; }
 	bool sparse = ((is_init_sparse==1) ? true : false);
+
+	omp_set_num_threads(omp_threads);
 
 	// initialize hash key
 	Hash hash;
@@ -278,17 +276,29 @@ int main(int argc, char *argv[])
 		curr_time += dt;
 		num_time_step ++;
 
-// for (int i = 0; i < 100; ++i)
-// {
-// 	if(curr_time < i + dt && curr_time >= i)
-// 	{
-// 		IO inout(dg_f);
-// 		std::string file_name = "cut_" + std::to_string(i) + ".txt";
-// 		double cut_x = 0.05*Const::PI/const_L;
-// 		int cut_dim = 0;
-// 		inout.output_num_cut_2D(file_name, cut_x, cut_dim);
-// 	}
-// }		
+		// plot
+		for (int i = 0; i < 100; ++i)
+		{
+			if(curr_time < i + dt && curr_time >= i)
+			{
+				IO inout_f(dg_f);
+				std::string file_name = "f_cut2D_t" + std::to_string(i) + ".txt";
+				double cut_x = 0.05*Const::PI/const_L;
+				int cut_dim = 0;
+				inout_f.output_num_cut_2D(file_name, cut_x, cut_dim);
+
+				IO inout_BE(dg_BE);
+				file_name = "B3_t" + std::to_string(i) + ".txt";
+				inout_BE.output_num_3D_cut_1D(file_name, {0.2, 0.2}, {1, 2}, 0);
+
+				file_name = "E1_t" + std::to_string(i) + ".txt";
+				inout_BE.output_num_3D_cut_1D(file_name, {0.2, 0.2}, {1, 2}, 1);
+
+				file_name = "E2_t" + std::to_string(i) + ".txt";
+				inout_BE.output_num_3D_cut_1D(file_name, {0.2, 0.2}, {1, 2}, 2);
+			}
+		}
+
 		// record code running time
 		if (num_time_step % output_time_interval == 0)
 		{

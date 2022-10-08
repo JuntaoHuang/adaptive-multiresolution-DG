@@ -79,6 +79,28 @@ void IO::output_num_cut_2D(const std::string & file_name, const double cut_x, co
     output.close();
 }
 
+void IO::output_num_3D_cut_1D(const std::string & file_name, const std::vector<double> & cut_x, const std::vector<int> & cut_dim, const int vec_index) const
+{
+    assert(dgsolution_ptr->DIM==3);
+    assert(cut_x.size()==2 && cut_dim.size()==2);
+
+    std::ofstream output;
+    output.open(file_name);
+    std::vector<int> zero_derivative(dgsolution_ptr->DIM, 0);
+    std::vector<double> x_vec;
+    for (auto const & x : x_1D)
+    {        
+        if (cut_dim[0]==0 && cut_dim[1]==1) { x_vec = {cut_x[0], cut_x[1], x}; }
+        else if (cut_dim[0]==1 && cut_dim[1]==2) { x_vec = {x, cut_x[0], cut_x[1]}; }
+        else if (cut_dim[0]==0 && cut_dim[1]==2) { x_vec = {cut_x[0], x, cut_x[1]}; }
+        else { std::cout << "error in void IO::output_num_3D_cut_1D()" << std::endl; exit(1); }
+
+        double u = dgsolution_ptr->val(x_vec, zero_derivative)[vec_index];
+        output << x << "   " << u << std::endl;
+    }    
+    output.close();
+}
+
 void IO::output_flux_lagrange(const std::string & file_name, const int unknown_var_index, const int dim, const int NMAX) const
 {
     assert(dgsolution_ptr->DIM==2);
