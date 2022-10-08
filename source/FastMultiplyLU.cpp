@@ -304,12 +304,12 @@ void FastMultiplyLU::transform_1D(const VecMultiD<double> & mat_1D, const std::s
     //std::vector<int> index_trans_from(dgsolution_ptr->DIM);
 
 	// iterate over dg map
-	//omp_set_num_threads(8);
-#pragma omp parallel num_threads(3)	
+// omp_set_num_threads(30);
+// #pragma omp parallel num_threads(10)
 	{
 		for (auto & iter : dgsolution_ptr->dg)
 		{
-#pragma omp single nowait
+// #pragma omp single nowait
 			{
 				std::vector<int> index_trans_from(dgsolution_ptr->DIM);
 				// pointers to related elements
@@ -531,8 +531,6 @@ void FastInterpolation::transform_ucoealpt_to_upintp(const std::vector<const Vec
 	std::vector<std::vector<std::string>> LU_order_transform;
 	generate_transform_order(dim, dim_order_transform, LU_order_transform);
 
-	//	omp_set_num_threads(dim_order_transform.size());
-	//#pragma omp parallel for
 	for (int sum_num = 0; sum_num < dim_order_transform.size(); sum_num++)
 	{
 		transform_multiD_partial_sum(alpt_basis_pt_1D, dim_order_transform[sum_num], LU_order_transform[sum_num]);
@@ -550,8 +548,6 @@ void FastInterpolation::transform_ucoealpt_to_upintp(const std::vector<const Vec
 	std::vector<std::vector<std::string>> LU_order_transform;
 	generate_transform_order(dim, dim_order_transform, LU_order_transform);
 
-	//	omp_set_num_threads(dim_order_transform.size());
-	//#pragma omp parallel for
 	for (int sum_num = 0; sum_num < dim_order_transform.size(); sum_num++)
 	{
 		transform_multiD_partial_sum(alpt_basis_pt_1D, dim_order_transform[sum_num], LU_order_transform[sum_num], vec_index);
