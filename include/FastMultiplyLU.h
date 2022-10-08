@@ -376,7 +376,9 @@ protected:
     // transform Element::ucoe_alpt to Element::rhs
     // use this function to compute rhs for linear equations
     void transform_ucoe_alpt_to_rhs(const std::vector<const VecMultiD<double>*> & mat_1D, const std::vector<std::string> & operator_type, const int dim_operator, const double coefficient = 1.0, const int vec_index = 0);
-
+    // simplified version, use orthogonality of Alpert basis
+    void transform_ucoe_alpt_to_rhs(const VecMultiD<double>* mat_1D, const std::string & operator_type, const int dim_operator, const double coefficient = 1.0, const int vec_index = 0);
+    
     // calculate rhs from coefficients of interpolation basis 
     // given transformation matrix (x and y directions) in 1D
     // LU-algorithm: 
@@ -404,9 +406,16 @@ private:
     void transform_1D_from_ucoe_alpt_to_rhs(const VecMultiD<double> & mat_1D, const std::string & LU, const std::string & operator_type, 
             const std::vector<int> & size_trans_from, const std::vector<int> & size_trans_to, const int dim_transform_1D,
             const bool is_first_step, const bool is_last_step, const int dim_interp, const int vec_index, const double coefficient = 1.0);
+    // simplified version
+    void transform_1D_from_ucoe_alpt_to_rhs(const VecMultiD<double> & mat_1D, const std::string & LU, const std::string & operator_type, 
+            const std::vector<int> & size_trans_from, const std::vector<int> & size_trans_to, const int dim_transform_1D, 
+            const bool is_first_step, const bool is_last_step, const int vec_index, const double coefficient = 1.0);
 
     void transform_multiD_partial_sum_ucoe_alpt(const std::vector<const VecMultiD<double>*> & mat_1D_array, const std::vector<int> & dim_order_transform, 
             const std::vector<std::string> & LU_order_transform, const std::vector<std::string> & operator_type, const int dim_operator, const int vec_index, const double coefficient = 1.0);
+    // simplified version, use orthogonality of Alpert basis
+    void transform_multiD_partial_sum_ucoe_alpt(const VecMultiD<double>* mat_1D_array, const std::vector<int> & dim_order_transform, 
+		    const std::vector<std::string> & LU_order_transform, const std::string & operator_type, const int vec_index, const double coefficient = 1.0);
 
     // set Element::rhs to zero
     void set_rhs_zero(const int vec_index = 0);
@@ -416,7 +425,7 @@ private:
 
     // copy value in ucoe_alpt to ucoe_trans_from
     void copy_ucoe_alpt_to_transfrom(const int vec_index = 0);
-    
+
     // add value in Element::ucoe_trans_to to Element::rhs
     void add_transto_to_rhs(const int vec_index = 0);
 

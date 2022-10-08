@@ -164,6 +164,7 @@ int main(int argc, char *argv[])
 	
 	// ------------------------------
 	HyperbolicLagrRHS fast_rhs_lagr(dg_f, oper_matx_lagr);
+	HyperbolicAlptRHS fast_rhs_alpt(dg_f, oper_matx_alpt);
 
 	// fast Lagrange interpolation
     LagrInterpolation interp_lagr(dg_f);
@@ -194,7 +195,7 @@ int main(int argc, char *argv[])
 	{			
 		// --- part 1: calculate time step dt ---	
 		const std::vector<int> & max_mesh = dg_f.max_mesh_level_vec();
-		
+
 		// dt = cfl/(c1/dx1 + c2/dx2 + ... + c_dim/dx_dim)
 		double sum_c_dx = 0.;	// this variable stores (c1/dx1 + c2/dx2 + ... + c_dim/dx_dim)
 		for (size_t d = 0; d < DIM; d++)
@@ -209,14 +210,15 @@ int main(int argc, char *argv[])
 			// before Euler forward, copy Element::ucoe_alpt to Element::ucoe_alpt_predict
 			dg_f.copy_ucoe_to_predict();
 
-			// linear operator for f  (only flux integral)
-			HyperbolicAlpt linear_f(dg_f, oper_matx_alpt);
-			for (int d = 0; d < DIM; d++)
-			{				
-				linear_f.assemble_matrix_flx_jump_system(d, {-lxf_alpha/2, 0, 0});
-			}
-
-			ForwardEuler odeSolver_f(linear_f, dt);
+			// // linear operator for f  (only flux integral)
+			// HyperbolicAlpt linear_f(dg_f, oper_matx_alpt);
+			// for (int d = 0; d < DIM; d++)
+			// {				
+			// 	linear_f.assemble_matrix_flx_jump_system(d, {-lxf_alpha/2, 0, 0});
+			// }
+			
+			// ForwardEuler odeSolver_f(linear_f, dt);
+			ForwardEuler odeSolver_f(dg_f, dt);
 			odeSolver_f.init();
 
 			// --- step 1: update RHS for f ---
@@ -245,11 +247,12 @@ int main(int argc, char *argv[])
 
 			fast_rhs_lagr.rhs_vol_scalar();
 			fast_rhs_lagr.rhs_flx_intp_scalar();
+			fast_rhs_alpt.rhs_flx_penalty_scalar({lxf_alpha, lxf_alpha, lxf_alpha});
 
 			// add to rhs in odeSolver_f
 			odeSolver_f.set_rhs_zero();
 			odeSolver_f.add_rhs_to_eigenvec();
-			odeSolver_f.add_rhs_matrix(linear_f);
+			// odeSolver_f.add_rhs_matrix(linear_f);
 
 			odeSolver_f.step_stage(0);
 			
@@ -266,14 +269,15 @@ int main(int argc, char *argv[])
 		dg_f.copy_predict_to_ucoe();
 
         // --- part 4: time evolution
-		// linear operator for f (only flux integral)
-		HyperbolicAlpt linear_f(dg_f, oper_matx_alpt);
-		for (int d = 0; d < DIM; d++)
-		{			
-			linear_f.assemble_matrix_flx_jump_system(d, {-lxf_alpha/2, 0, 0});
-		}
-
-        RK3SSP odeSolver_f(linear_f, dt);
+		// // linear operator for f (only flux integral)
+		// HyperbolicAlpt linear_f(dg_f, oper_matx_alpt);
+		// for (int d = 0; d < DIM; d++)
+		// {			
+		// 	linear_f.assemble_matrix_flx_jump_system(d, {-lxf_alpha/2, 0, 0});
+		// }
+		
+		// RK3SSP odeSolver_f(linear_f, dt);
+        RK3SSP odeSolver_f(dg_f, dt);
         odeSolver_f.init();
 
 		RK3SSP odeSolver_BE(linear_BE, dt);
@@ -310,11 +314,12 @@ int main(int argc, char *argv[])
 
 			fast_rhs_lagr.rhs_vol_scalar();
 			fast_rhs_lagr.rhs_flx_intp_scalar();
-
-            // add to rhs in odeSolver_f
+			fast_rhs_alpt.rhs_flx_penalty_scalar({lxf_alpha, lxf_alpha, lxf_alpha});
+            
+			// add to rhs in odeSolver_f
             odeSolver_f.set_rhs_zero();
             odeSolver_f.add_rhs_to_eigenvec();
-            odeSolver_f.add_rhs_matrix(linear_f);
+            // odeSolver_f.add_rhs_matrix(linear_f);
 
             odeSolver_f.step_stage(stage);
 			

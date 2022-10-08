@@ -29,6 +29,21 @@ void FastRHS::transform_ucoe_alpt_to_rhs(const std::vector<const VecMultiD<doubl
     }
 }
 
+void FastRHS::transform_ucoe_alpt_to_rhs(const VecMultiD<double>* mat_1D, const std::string & operator_type, const int dim_operator, const double coefficient, const int vec_index)
+{
+    const int dim = dgsolution_ptr->DIM;
+
+	// only do transformation in 1D in given dim_operator dimension
+    std::vector<int> dim_order_transform;
+    std::vector<std::string> LU_order_transform(dim, "L");
+	for (int d = 0; d < dim; d++) { dim_order_transform.push_back(d); }
+	dim_order_transform[dim-1] = dim_operator;	
+	dim_order_transform[dim_operator] = dim-1;
+	LU_order_transform[dim-1] = "full";
+
+    transform_multiD_partial_sum_ucoe_alpt(mat_1D, dim_order_transform, LU_order_transform, operator_type, vec_index, coefficient);
+}
+
 void FastRHS::set_rhs_zero(const int vec_index)
 {
     for (auto & iter : dgsolution_ptr->dg)
@@ -109,6 +124,32 @@ void FastRHS::transform_multiD_partial_sum_ucoe_alpt(const std::vector<const Vec
     }
 }
 
+void FastRHS::transform_multiD_partial_sum_ucoe_alpt(const VecMultiD<double>* mat_1D_array, const std::vector<int> & dim_order_transform, 
+		const std::vector<std::string> & LU_order_transform, const std::string & operator_type, const int vec_index, const double coefficient)
+{
+    // transform from alpert basis to alpert basis
+    const int pmax_trans_from = Element::PMAX_alpt;
+    const int pmax_trans_to = Element::PMAX_alpt;
+    const int dim = Element::DIM;
+
+    std::vector<std::vector<int>> series_vec = series_vec_transform_size(pmax_trans_from+1, pmax_trans_to+1, dim, dim_order_transform);
+
+    // variable control first or last step
+    std::vector<bool> is_first_step(dim, false);
+    is_first_step[0] = true;
+    
+    std::vector<bool> is_last_step(dim, false);    
+    is_last_step[dim-1] = true;
+    
+	// first copy value in ucoe_alpt to ucoe_trans_from (no transformation in this step)
+	int d = 0;
+	transform_1D_from_ucoe_alpt_to_rhs(*(mat_1D_array), LU_order_transform[d], operator_type, series_vec[d], series_vec[d+1], dim_order_transform[d], is_first_step[d], is_last_step[d], vec_index, coefficient);
+
+	// then do transformation in 1D
+	d = dim - 1;
+	transform_1D_from_ucoe_alpt_to_rhs(*(mat_1D_array), LU_order_transform[d], operator_type, series_vec[d], series_vec[d+1], dim_order_transform[d], is_first_step[d], is_last_step[d], vec_index, coefficient);
+}
+
 void FastRHS::transform_1D_from_ucoe_alpt_to_rhs(const VecMultiD<double> & mat_1D, const std::string & LU, const std::string & operator_type, 
         const std::vector<int> & size_trans_from, const std::vector<int> & size_trans_to, const int dim_transform_1D, 
         const bool is_first_step, const bool is_last_step, const int dim_interp, const int vec_index, const double coefficient)
@@ -133,6 +174,37 @@ void FastRHS::transform_1D_from_ucoe_alpt_to_rhs(const VecMultiD<double> & mat_1
 
     // add transform_to to rhs in the last step
     if (is_last_step) { add_transto_to_rhs(vec_index); }
+}
+
+void FastRHS::transform_1D_from_ucoe_alpt_to_rhs(const VecMultiD<double> & mat_1D, const std::string & LU, const std::string & operator_type, 
+        const std::vector<int> & size_trans_from, const std::vector<int> & size_trans_to, const int dim_transform_1D, 
+        const bool is_first_step, const bool is_last_step, const int vec_index, const double coefficient)
+{
+    // transform from alpert basis to alpert basis
+    const int pmax_trans_from = Element::PMAX_alpt;
+    const int pmax_trans_to = Element::PMAX_alpt;
+
+    if (is_first_step)
+	{
+		// resize
+		resize_ucoe_transfrom(size_trans_from, vec_index);
+		resize_ucoe_transto(size_trans_to, vec_index);
+
+		// copy value in ucoe_alpt to ucoe_trans_from
+		copy_ucoe_alpt_to_transfrom(vec_index);
+	}
+	else if (is_last_step)
+	{
+		// do transformation in 1D: ucoe_trans_from -> ucoe_trans_to
+		transform_1D(mat_1D, LU, operator_type, dim_transform_1D, pmax_trans_from, pmax_trans_to, coefficient, vec_index, vec_index);
+		
+		// add ucoe_trans_to to rhs in the last step
+		add_transto_to_rhs(vec_index); 
+	}
+	else
+	{
+		std::cout << "error in FastRHS::transform_1D_from_ucoe_alpt_to_rhs()" << std::endl; exit(1);
+	}
 }
 
 void FastRHS::rhs_2D(const VecMultiD<double> & mat_x, const VecMultiD<double> & mat_y, const std::string operator_type_x, const std::string operator_type_y, const int dim_interp, const double coefficient)
@@ -790,29 +862,36 @@ void HyperbolicLagrRHS::rhs_flx_intp_scalar()
 void HyperbolicAlptRHS::rhs_flx_penalty_scalar(const std::vector<double> & lax_alpha)
 {
     const int dim = dgsolution_ptr->DIM;
-	
-    std::vector<const VecMultiD<double>*> oper_matx_1D;
-    std::vector<std::string> operator_type;
-    for (size_t d = 0; d < dim; d++)
-    {
-        oper_matx_1D.clear();
-        operator_type.clear();
 
-        for (size_t dim_derivative = 0; dim_derivative < dim; dim_derivative++)
-        {
-            if (dim_derivative == d) 
-            { 
-                oper_matx_1D.push_back(&oper_matx_alpt_ptr->ujp_vjp);
-                operator_type.push_back("flx");
-            }
-            else 
-            { 
-                oper_matx_1D.push_back(&oper_matx_alpt_ptr->u_v);
-                operator_type.push_back("vol");
-            }
-        }
-        transform_ucoe_alpt_to_rhs(oper_matx_1D, operator_type, d, -lax_alpha[d]/2.);
-    }
+	for (size_t d = 0; d < dim; d++)
+	{
+		transform_ucoe_alpt_to_rhs(&oper_matx_alpt_ptr->ujp_vjp, "flx", d, -lax_alpha[d]/2., 0);
+	}
+	
+	// // below will generate the same result
+	// // slower, but easier to understand
+    // std::vector<const VecMultiD<double>*> oper_matx_1D;
+    // std::vector<std::string> operator_type;
+    // for (size_t d = 0; d < dim; d++)
+    // {
+    //     oper_matx_1D.clear();
+    //     operator_type.clear();
+
+    //     for (size_t dim_derivative = 0; dim_derivative < dim; dim_derivative++)
+    //     {
+    //         if (dim_derivative == d) 
+    //         { 
+    //             oper_matx_1D.push_back(&oper_matx_alpt_ptr->ujp_vjp);
+    //             operator_type.push_back("flx");
+    //         }
+    //         else 
+    //         { 
+    //             oper_matx_1D.push_back(&oper_matx_alpt_ptr->u_v);
+    //             operator_type.push_back("vol");
+    //         }
+    //     }
+    //     transform_ucoe_alpt_to_rhs(oper_matx_1D, operator_type, d, -lax_alpha[d]/2.);
+    // }
 }
 
 void SourceFastLagr::rhs_source()
