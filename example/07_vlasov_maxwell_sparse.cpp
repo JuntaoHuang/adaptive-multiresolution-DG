@@ -24,6 +24,8 @@
 
 int main(int argc, char *argv[])
 {
+	omp_set_num_threads(10);
+
 	// constant variable
 	const int DIM = 3;
 	const int VEC_NUM = 3;
@@ -310,10 +312,10 @@ int main(int argc, char *argv[])
 	int cut_dim = 0;
 	inout.output_num_cut_2D(file_name, cut_x, cut_dim);
 
-// // validate correctness
-// std::vector<int> zero_derivative(DIM, 0);
-// std::vector<double> x(DIM, 0.3478);
-// double val_f = dg_f.val(x, zero_derivative)[0];
-// std::cout << val_f << std::endl;
+// validate correctness
+std::vector<int> zero_derivative(DIM, 0);
+std::vector<double> x(DIM, 0.3478);
+double val_f = dg_f.val(x, zero_derivative)[0];
+std::cout << val_f << std::endl;
 	return 0;
 }

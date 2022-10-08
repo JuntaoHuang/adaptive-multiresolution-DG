@@ -306,10 +306,11 @@ void FastMultiplyLU::transform_1D(const VecMultiD<double> & mat_1D, const std::s
 	// iterate over dg map
 // omp_set_num_threads(30);
 // #pragma omp parallel num_threads(10)
+#pragma omp parallel
 	{
 		for (auto & iter : dgsolution_ptr->dg)
 		{
-// #pragma omp single nowait
+#pragma omp single nowait
 			{
 				std::vector<int> index_trans_from(dgsolution_ptr->DIM);
 				// pointers to related elements
