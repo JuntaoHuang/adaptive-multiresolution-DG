@@ -277,12 +277,12 @@ int main(int argc, char *argv[])
 		num_time_step ++;
 
 		// plot
-		for (int i = 0; i < 100; ++i)
+		for (int i = 0; i < 101; ++i)
 		{
 			if(curr_time < i + dt && curr_time >= i)
 			{
 				IO inout_f(dg_f);
-				std::string file_name = "f_cut2D_t" + std::to_string(i) + ".txt";
+				std::string file_name = "f_cut2D_t" + std::to_string(curr_time) + ".txt";
 				double cut_x = 0.05*Const::PI/const_L;
 				int cut_dim = 0;
 				inout_f.output_num_cut_2D(file_name, cut_x, cut_dim);

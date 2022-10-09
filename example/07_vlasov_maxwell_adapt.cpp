@@ -77,19 +77,19 @@ int main(int argc, char *argv[])
 	// output info in screen every time steps
 	int output_time_interval = 100;
 
-	// num of gauss points in computing error
-	int num_gauss_pt_compute_error = 3;
+	// num of threads in openmp
+	int omp_threads = 10;
 
 	OptionsParser args(argc, argv);
 	args.AddOption(&NMAX, "-NM", "--max-mesh-level", "Maximum mesh level");
 	args.AddOption(&N_init, "-N0", "--initial-mesh-level", "Mesh level in initialization");
 	args.AddOption(&is_init_sparse, "-s", "--sparse-grid-initial", "Use full grid (0) or sparse grid (1 by default) in initialization");
 	args.AddOption(&final_time, "-tf", "--final-time", "Final time; start time is 0.");
+	args.AddOption(&omp_threads, "-omp", "--openmp-threads", "number of threads in openmp (10 by default)");
 	args.AddOption(&cfl, "-cfl", "--cfl-number", "CFL number");	
 	args.AddOption(&refine_eps, "-r", "--refine-epsilon", "refine parameter epsilon");
 	args.AddOption(&coarsen_eta, "-c", "--coarsen-eta", "coarsen parameter eta");
 	args.AddOption(&output_time_interval, "-p", "--print-every-time-step", "every time steps output info in screen");
-	args.AddOption(&num_gauss_pt_compute_error, "-g", "--num-gauss-pt-compute-error", "number of gauss points in computing error");
 
 	args.Parse();
 	if (!args.Good())
@@ -102,6 +102,8 @@ int main(int argc, char *argv[])
 	// check mesh level in initialization should be less or equal to maximum mesh level
 	if (N_init>NMAX) { std::cout << "Mesh level in initialization should not be larger than Maximum mesh level" << std::endl; return 1; }
 	bool sparse = ((is_init_sparse==1) ? true : false);
+
+	omp_set_num_threads(omp_threads);
 
 	// initialize hash key
 	Hash hash;
@@ -147,6 +149,7 @@ int main(int argc, char *argv[])
 	auto init_func_zero = [](double x, int d) { return 0.; };
 	std::vector<std::function<double(double, int)>> init_func_f{init_func_1, init_func_zero, init_func_zero};
 	dg_f.init_separable_system(init_func_f);
+	std::cout << "num of basis after initial: " << dg_f.size_basis_alpt() << std::endl;
 
 	// initialization of magnetic and electric field with v in the auxiliary dimension
 	// dg_BE = (B3(x2, v1, v2), E1(x2, v1, v2), E2(x2, v1, v2))
@@ -167,6 +170,7 @@ int main(int argc, char *argv[])
 	
 	// ------------------------------
 	HyperbolicLagrRHS fast_rhs_lagr(dg_f, oper_matx_lagr);
+	HyperbolicAlptRHS fast_rhs_alpt(dg_f, oper_matx_alpt);
 
 	// fast Lagrange interpolation
     LagrInterpolation interp_lagr(dg_f);
@@ -222,14 +226,7 @@ int main(int argc, char *argv[])
 			// before Euler forward, copy Element::ucoe_alpt to Element::ucoe_alpt_predict
 			dg_f.copy_ucoe_to_predict();
 
-			// linear operator for f (only flux integral)
-			HyperbolicAlpt linear_f(dg_f, oper_matx_alpt);
-			for (int d = 0; d < DIM; d++)
-			{
-				linear_f.assemble_matrix_flx_jump_system(d, {-lxf_alpha[d]/2, 0, 0});
-			}
-
-			ForwardEuler odeSolver_f(linear_f, dt);
+			ForwardEuler odeSolver_f(dg_f, dt);
 			odeSolver_f.init();
 
 			// --- step 1: update RHS for f ---
@@ -242,11 +239,11 @@ int main(int argc, char *argv[])
 
 			fast_rhs_lagr.rhs_vol_scalar();
 			fast_rhs_lagr.rhs_flx_intp_scalar();
+			fast_rhs_alpt.rhs_flx_penalty_scalar(lxf_alpha);
 
 			// add to rhs in odeSolver_f
 			odeSolver_f.set_rhs_zero();
 			odeSolver_f.add_rhs_to_eigenvec();
-			odeSolver_f.add_rhs_matrix(linear_f);
 
 			odeSolver_f.step_stage(0);
 			
@@ -263,14 +260,14 @@ int main(int argc, char *argv[])
 		dg_f.copy_predict_to_ucoe();
 
         // --- part 4: time evolution
-		// linear operator for f (only flux integral)
-		HyperbolicAlpt linear_f(dg_f, oper_matx_alpt);
-		for (int d = 0; d < DIM; d++)
-		{			
-			linear_f.assemble_matrix_flx_jump_system(d, {-lxf_alpha[d]/2, 0, 0});
-		}
+		// // linear operator for f (only flux integral)
+		// HyperbolicAlpt linear_f(dg_f, oper_matx_alpt);
+		// for (int d = 0; d < DIM; d++)
+		// {			
+		// 	linear_f.assemble_matrix_flx_jump_system(d, {-lxf_alpha[d]/2, 0, 0});
+		// }
 
-        RK3SSP odeSolver_f(linear_f, dt);
+        RK3SSP odeSolver_f(dg_f, dt);
         odeSolver_f.init();
 
 		RK3SSP odeSolver_BE(linear_BE, dt);
@@ -289,11 +286,12 @@ int main(int argc, char *argv[])
 
 			fast_rhs_lagr.rhs_vol_scalar();
 			fast_rhs_lagr.rhs_flx_intp_scalar();
+			fast_rhs_alpt.rhs_flx_penalty_scalar(lxf_alpha);
 
             // add to rhs in odeSolver_f
             odeSolver_f.set_rhs_zero();
             odeSolver_f.add_rhs_to_eigenvec();
-            odeSolver_f.add_rhs_matrix(linear_f);
+            // odeSolver_f.add_rhs_matrix(linear_f);
 
             odeSolver_f.step_stage(stage);
 			
@@ -331,7 +329,30 @@ int main(int argc, char *argv[])
 		// add current time and increase time steps
 		curr_time += dt;
 		num_time_step ++;
-		
+
+		// plot
+		for (int i = 0; i < 101; ++i)
+		{
+			if(curr_time < i + dt && curr_time >= i)
+			{
+				IO inout_f(dg_f);
+				std::string file_name = "f_cut2D_t" + std::to_string(curr_time) + ".txt";
+				double cut_x = 0.05*Const::PI/const_L;
+				int cut_dim = 0;
+				inout_f.output_num_cut_2D(file_name, cut_x, cut_dim);
+
+				IO inout_BE(dg_BE);
+				file_name = "B3_t" + std::to_string(i) + ".txt";
+				inout_BE.output_num_3D_cut_1D(file_name, {0.2, 0.2}, {1, 2}, 0);
+
+				file_name = "E1_t" + std::to_string(i) + ".txt";
+				inout_BE.output_num_3D_cut_1D(file_name, {0.2, 0.2}, {1, 2}, 1);
+
+				file_name = "E2_t" + std::to_string(i) + ".txt";
+				inout_BE.output_num_3D_cut_1D(file_name, {0.2, 0.2}, {1, 2}, 2);
+			}
+		}
+
 		// record code running time
 		if (num_time_step % output_time_interval == 0)
 		{
