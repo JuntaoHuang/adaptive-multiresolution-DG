@@ -58,6 +58,7 @@ public:
 	T & at(const std::vector<int> & index);		// access element for multidimensional vector
 	T & at(const int row, const int col);		// access element just for 2D vector
 	T & at(const int row, const int col, const int hgt);	// access element just for 3D vector
+	T & at(const int d1, const int d2, const int d3, const int d4);		// access element for 4D vector
 	T & at(const int order);
 
 	// constant version
@@ -316,6 +317,14 @@ template<class T>
 T & VecMultiD<T>::at(const int row, const int col, const int hgt)
 {
 	int order = (row * _vec_size[1] + col) * _vec_size[2] + hgt;
+	assert(order < _total_size);
+	return _vec[order];
+}
+
+template<class T>
+T & VecMultiD<T>::at(const int d1, const int d2, const int d3, const int d4)
+{
+	int order = ((d1 * _vec_size[1] + d2) * _vec_size[2] + d3) * _vec_size[3] + d4;
 	assert(order < _total_size);
 	return _vec[order];
 }

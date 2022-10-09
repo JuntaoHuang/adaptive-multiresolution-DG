@@ -4495,6 +4495,81 @@ void LagrInterpolation::interp_Vlasov_1D2V(DGSolution & dg_BE, std::function<dou
 	eval_fp_to_coe_D_Lag(is_intp);
 }
 
+// f_t + v1 * f_x1 + v2 * f_x2 + E1 * f_x1 + E2 * f_x2 = 0
+void LagrInterpolation::interp_Vlasov_2D2V(DGSolution & dg_E, FastLagrIntp & fastLagr_f, FastLagrIntp & fastLagr_E)
+{
+	// step 1: fast transform, f alpert coefficients -> point values (store in Element::up_intp in f)
+	// only do transformation in the first component
+	fastLagr_f.eval_up_Lagr(0);
+
+	// step 2: fast transform, E alpert coefficients -> point values (store in Element::up_intp in E)
+	fastLagr_E.eval_up_Lagr();
+
+	// step 3: copy Element::up_intp in E to Element::up_intp_other in f
+	const std::vector<int> num_vec_f{0, 1};
+	const std::vector<int> num_vec_E{0, 1};	// dg_E = {E1, E2}
+	const std::vector<int> vel_dim_f{2, 3};	// f = f(x1, x2, v1, v2)
+	dgsolution_ptr->copy_up_intp_to_f(dg_E, num_vec_f, num_vec_E, vel_dim_f);
+
+	// step 4: compute v1 * f, v2 * f, E1 * f, E2 * f point value
+	for (auto it = dgsolution_ptr->dg.begin(); it != dgsolution_ptr->dg.end(); it++)
+	{
+		const std::vector<int> & l = it->second.level;
+		const std::vector<int> & j = it->second.suppt;
+
+		std::vector<std::vector<int>> & order = it->second.order_local_intp;
+
+		std::vector< VecMultiD<double> > & up = it->second.up_intp;
+		std::vector< VecMultiD<double> > & up_other = it->second.up_intp_other;
+		std::vector< std::vector< VecMultiD<double> > > & fp = it->second.fp_intp;
+
+		std::vector<double> pos(DIM);
+		std::vector<int> p(DIM);
+
+		for (auto it0 = order.begin(); it0 != order.end(); it0++)
+		{
+			for (int d = 0; d < DIM; d++)
+			{
+				p[d] = (*it0)[d];	// polynomial degree of interpolation basis
+				pos[d] = dgsolution_ptr->all_bas_Lag.at(l[d], j[d], p[d]).intep_pt;	// coordinate of interpolation point
+			}
+
+			// f_t + v1 * f_x1 + v2 * f_x2 + E1 * f_x1 + E2 * f_x2 = 0
+			
+			// pos = (x1, x2, v1, v2)
+			double v1 = pos[2]; double v2 = pos[3];
+			
+			double f = up[0].at(*it0);
+
+			// dg_E = {E1, E2}
+			double E1 = up_other[0].at(*it0);
+			double E2 = up_other[1].at(*it0);
+
+			// dimension 0: v1 * f
+			int d = 0;
+			fp[0][d].at(*it0) = v1 * f;
+			
+			// dimension 1: v2 * f
+			d = 1;
+			fp[0][d].at(*it0) = v2 * f;
+
+			// dimension 2: E1 * f
+			d = 2;
+			fp[0][d].at(*it0) = E1 * f;
+			
+			// dimension 3: E2 * f
+			d = 3;
+			fp[0][d].at(*it0) = E2 * f;
+		}
+	}
+
+	// step 5: transform point value to interpolation coefficients
+	std::vector< std::vector<bool> > is_intp;
+	is_intp.push_back(std::vector<bool>(DIM, true));	// interpolation for the 1st vec_num in all dimensions
+	is_intp.push_back(std::vector<bool>(DIM, false));	// no interpolation for the 2nd vec_num in all dimensions
+	eval_fp_to_coe_D_Lag(is_intp);
+}
+
 void HermInterpolation::nonlinear_Herm_1D(std::function<double(std::vector<double>, int, int)> func,
 	std::function<double(std::vector<double>, int, int, int)> func_d1,
 	std::vector< std::vector<bool> > is_intp)

@@ -59,6 +59,8 @@ public:
 	 */
 	void compute_moment_1D2V(DGAdapt & f, const std::vector<int> & moment_order, const double moment_order_weight, const int num_vec_EB, const int num_vec_f);
 
+	void compute_moment_2D2V(DGAdapt & f, const std::vector<int> & moment_order, const double moment_order_weight, const int num_vec_EB, const int num_vec_f);
+	
 	// adaptive add elements in f for all the elements in E
 	void adapt_f_base_on_E(DGAdapt & E);
 	

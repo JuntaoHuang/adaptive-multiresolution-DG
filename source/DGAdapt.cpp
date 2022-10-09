@@ -287,6 +287,56 @@ void DGAdapt::compute_moment_1D2V(DGAdapt & f, const std::vector<int> & moment_o
 	}
 }
 
+void DGAdapt::compute_moment_2D2V(DGAdapt & f, const std::vector<int> & moment_order, const double moment_order_weight, const int num_vec_EB, const int num_vec_f)
+{
+	// f = f(x1, x2, v1, v2)
+	assert(f.DIM == 4);
+	assert(moment_order.size() == 2);
+	for (int i = 0; i < moment_order.size(); i++) { assert(moment_order[i] <= 1); }
+
+	const int moment_order_v1 = moment_order[0];
+	const int moment_order_v2 = moment_order[1];
+	
+	// loop over all the elements in the current dg solution (represent E or B in Maxwell equations)
+	for (auto & iter : dg)
+	{
+		// index (including mesh level and support index)
+		const std::array<std::vector<int>,2> & index = {iter.second.level, iter.second.suppt};
+
+		// compute hash key and find it in distribution function f
+		int hash_key_f = hash.hash_key(index);
+		auto iter_f = f.dg.find(hash_key_f);
+		
+		if (iter_f != f.dg.end())
+		{
+			for (int deg_x1 = 0; deg_x1 < AlptBasis::PMAX + 1; deg_x1++)
+			{
+				for (int deg_x2 = 0; deg_x2 < AlptBasis::PMAX + 1; deg_x2++)
+				{
+					if (moment_order_v1==0 && moment_order_v2==0)
+					{
+						iter.second.rhs[num_vec_EB].at(deg_x1, deg_x2, 0, 0) += iter_f->second.ucoe_alpt[num_vec_f].at(deg_x1, deg_x2, 0, 0) * moment_order_weight;
+					}
+					else if (moment_order_v1==1 && moment_order_v2==0)
+					{
+						iter.second.rhs[num_vec_EB].at(deg_x1, deg_x2, 0, 0) += ( iter_f->second.ucoe_alpt[num_vec_f].at(deg_x1, deg_x2, 0, 0) * 1./2.
+																	+ iter_f->second.ucoe_alpt[num_vec_f].at(deg_x1, deg_x2, 1, 0) * 1./(2.*sqrt(3.)) )* moment_order_weight;
+					}
+					else if (moment_order_v1==0 && moment_order_v2==1)
+					{
+						iter.second.rhs[num_vec_EB].at(deg_x1, deg_x2, 0, 0) += ( iter_f->second.ucoe_alpt[num_vec_f].at(deg_x1, deg_x2, 0, 0) * 1./2.
+																	+ iter_f->second.ucoe_alpt[num_vec_f].at(deg_x1, deg_x2, 0, 1) * 1./(2.*sqrt(3.)) )* moment_order_weight;
+					}
+					else
+					{
+						std::cout << "error in DGAdapt::compute_moment_2D2V()" << std::endl; exit(1);
+					}
+				}
+			}
+		}
+	}
+}
+
 void DGAdapt::adapt_f_base_on_E(DGAdapt & E)
 {
 	// loop over all the elements in E
