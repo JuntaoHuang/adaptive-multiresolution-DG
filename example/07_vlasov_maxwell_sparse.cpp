@@ -29,10 +29,13 @@ int main(int argc, char *argv[])
 	const int VEC_NUM = 3;
 
 	// static variables
-	AlptBasis::PMAX = 3;
+	AlptBasis::PMAX = 2;
+	LagrBasis::PMAX = 3;
+	LagrBasis::msh_case = 3;
 
-	LagrBasis::PMAX = 4;
-	LagrBasis::msh_case = 2;
+	// AlptBasis::PMAX = 3;
+	// LagrBasis::PMAX = 4;
+	// LagrBasis::msh_case = 2;
 
 	HermBasis::PMAX = 3;
 	HermBasis::msh_case = 1;
@@ -306,6 +309,8 @@ int main(int argc, char *argv[])
 			std::cout << "num of time steps: " << num_time_step 
 					<< "; time step: " << dt 
 					<< "; current time: " << curr_time << std::endl
+					<< "max abs value of B3, E1, E2: " << max_abs_B3 << " " << max_abs_E1 << " " << max_abs_E2 << std::endl
+					<< "wave speed: " << wave_speed[0] << " " << wave_speed[1] << " " << wave_speed[2] << std::endl
 					<< std::endl;
 		}		
 	}
