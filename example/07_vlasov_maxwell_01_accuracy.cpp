@@ -39,6 +39,7 @@ int main(int argc, char *argv[])
 
 	Element::PMAX_alpt = AlptBasis::PMAX;	// max polynomial degree for Alpert's basis functions
 	Element::PMAX_intp = LagrBasis::PMAX;	// max polynomial degree for interpolation basis functions
+	// Element::PMAX_intp = HermBasis::PMAX;	// max polynomial degree for interpolation basis functions
 	Element::DIM = DIM;						// dimension
 	Element::VEC_NUM = VEC_NUM;				// num of unknown variables in PDEs
 
@@ -129,9 +130,10 @@ int main(int argc, char *argv[])
 	// initial condition for f
 	auto init_func_1 = [](double x, int d) -> double
 	{
-		if (d == 0) { return sin(2.*Const::PI*x); }
-		else if (d == 1) { return pow(sin(2.*Const::PI*x), 2.); }
-		else if (d == 2) { return pow(cos(2.*Const::PI*x), 2.); }
+		// if (d == 0) { return sin(2.*Const::PI*x); }
+		// else if (d == 1) { return pow(sin(2.*Const::PI*x), 2.); }
+		// else if (d == 2) { return pow(cos(2.*Const::PI*x), 2.); }
+		return 0.;
 	};
 	auto init_func_zero = [](double x, int d) { return 0.; };
 	std::vector<std::function<double(double, int)>> init_func_f{init_func_1, init_func_zero, init_func_zero};
@@ -164,17 +166,44 @@ int main(int argc, char *argv[])
 	
 	// ------------------------------
 	HyperbolicLagrRHS fast_rhs_lagr(dg_f, oper_matx_lagr);
+	HyperbolicHermRHS fast_rhs_herm(dg_f, oper_matx_herm);
 	HyperbolicAlptRHS fast_rhs_alpt(dg_f, oper_matx_alpt);
 
-	// fast Lagrange interpolation
-    LagrInterpolation interp_lagr(dg_f);
-	FastLagrIntp fast_lagr_intp_f(dg_f, interp_lagr.Lag_pt_Alpt_1D, interp_lagr.Lag_pt_Alpt_1D_d1);
-	FastLagrIntp fast_lagr_intp_BE(dg_BE, interp_lagr.Lag_pt_Alpt_1D, interp_lagr.Lag_pt_Alpt_1D_d1);
+	// // fast Lagrange interpolation
+    LagrInterpolation intp_lagr_f(dg_f);
+	FastLagrIntp fast_lagr_intp_f(dg_f, intp_lagr_f.Lag_pt_Alpt_1D, intp_lagr_f.Lag_pt_Alpt_1D_d1);
+	FastLagrIntp fast_lagr_intp_BE(dg_BE, intp_lagr_f.Lag_pt_Alpt_1D, intp_lagr_f.Lag_pt_Alpt_1D_d1);
+
+    HermInterpolation intp_herm_f(dg_f);
+	FastHermIntp fast_herm_intp_f(dg_f, intp_herm_f.Her_pt_Alpt_1D);
+	FastHermIntp fast_herm_intp_BE(dg_BE, intp_herm_f.Her_pt_Alpt_1D);
+
+	// // test hermite interpolation
+	// intp_herm_f.interp_Herm_Vlasov_1D2V(dg_BE, fast_herm_intp_f, fast_herm_intp_BE);
+	// auto func = [](std::vector<double> x, int i, int d) ->double
+	// {
+	// 	double x2 = x[0]; double v1 = x[1]; double v2 = x[2];
+	// 	double f = sin(2.*Const::PI*x2) * pow(sin(2.*Const::PI*v1), 2.) * pow(cos(2.*Const::PI*v2), 2.);
+	// 	double B3 = cos(2.*Const::PI*x2);
+	// 	double E1 = sin(2.*Const::PI*x2);
+	// 	double E2 = cos(4.*Const::PI*x2);
+	// 	if (d==0) { return v2 * f; }
+	// 	else if (d==1) { return (E1+v2*B3)*f; }
+	// 	else if (d==2) { return (E2-v1*B3)*f; }
+	// };
+	// const int pts = 1;
+	// std::vector< std::vector<bool> > is_intp;
+	// is_intp.push_back(std::vector<bool>(DIM, true));
+	// is_intp.push_back(std::vector<bool>(DIM, false));
+	// is_intp.push_back(std::vector<bool>(DIM, false));
+	// std::vector<double> err = dg_f.get_error_Her(func, pts, is_intp);
+	// std::cout << err[0] << ", " << err[1] << ", " << err[2] << std::endl;
+	// exit(1);
 
 	// constant in global Lax-Friedrich flux	
-	const double lxf_alpha = 2.;
+	// const double lxf_alpha = 2.;
 	// wave speed in x and y direction
-	const std::vector<double> wave_speed{1., 2., 2.};
+	// const std::vector<double> wave_speed{1., 2., 2.};
 
 	// linear operator for (B3, E1, E2)
 	HyperbolicAlpt linear_BE(dg_BE, oper_matx_alpt);	
@@ -196,6 +225,19 @@ int main(int argc, char *argv[])
 		// --- part 1: calculate time step dt ---	
 		const std::vector<int> & max_mesh = dg_f.max_mesh_level_vec();
 
+		// compute max abs value of B3, E1, E2
+		const std::vector<int> sample_max_mesh_level{NMAX, 1, 1};
+		const std::vector<double> max_abs_BE = dg_BE.max_abs_value(sample_max_mesh_level);
+		const double max_abs_B3 = max_abs_BE[0];
+		const double max_abs_E1 = max_abs_BE[1];
+		const double max_abs_E2 = max_abs_BE[2];
+
+		// wave speed in x and v direction
+		const std::vector<double> wave_speed{1., max_abs_E1 + max_abs_B3, max_abs_E2 + max_abs_B3};
+
+		// constant in global Lax-Friedrich flux	
+		const std::vector<double> lxf_alpha{wave_speed[0], wave_speed[1], wave_speed[2]};
+
 		// dt = cfl/(c1/dx1 + c2/dx2 + ... + c_dim/dx_dim)
 		double sum_c_dx = 0.;	// this variable stores (c1/dx1 + c2/dx2 + ... + c_dim/dx_dim)
 		for (size_t d = 0; d < DIM; d++)
@@ -205,68 +247,68 @@ int main(int argc, char *argv[])
 		double dt = cfl/sum_c_dx;
 		dt = std::min( dt, final_time - curr_time );
 		
-		// --- part 2: predict by Euler forward
-		{
-			// before Euler forward, copy Element::ucoe_alpt to Element::ucoe_alpt_predict
-			dg_f.copy_ucoe_to_predict();
+		// // --- part 2: predict by Euler forward
+		// {
+		// 	// before Euler forward, copy Element::ucoe_alpt to Element::ucoe_alpt_predict
+		// 	dg_f.copy_ucoe_to_predict();
 
-			// // linear operator for f  (only flux integral)
-			// HyperbolicAlpt linear_f(dg_f, oper_matx_alpt);
-			// for (int d = 0; d < DIM; d++)
-			// {				
-			// 	linear_f.assemble_matrix_flx_jump_system(d, {-lxf_alpha/2, 0, 0});
-			// }
+		// 	// // linear operator for f  (only flux integral)
+		// 	// HyperbolicAlpt linear_f(dg_f, oper_matx_alpt);
+		// 	// for (int d = 0; d < DIM; d++)
+		// 	// {				
+		// 	// 	linear_f.assemble_matrix_flx_jump_system(d, {-lxf_alpha/2, 0, 0});
+		// 	// }
 			
-			// ForwardEuler odeSolver_f(linear_f, dt);
-			ForwardEuler odeSolver_f(dg_f, dt);
-			odeSolver_f.init();
+		// 	// ForwardEuler odeSolver_f(linear_f, dt);
+		// 	ForwardEuler odeSolver_f(dg_f, dt);
+		// 	odeSolver_f.init();
 
-			// --- step 1: update RHS for f ---
-			// Lagrange interpolation
-			LagrInterpolation interp_f(dg_f);
-			interp_f.interp_Vlasov_1D2V(dg_BE, fast_lagr_intp_f, fast_lagr_intp_BE);
+		// 	// --- step 1: update RHS for f ---
+		// 	// Lagrange interpolation
+		// 	LagrInterpolation interp_f(dg_f);
+		// 	interp_f.interp_Vlasov_1D2V(dg_BE, fast_lagr_intp_f, fast_lagr_intp_BE);
 
-			// start computation of rhs
-			dg_f.set_rhs_zero();
+		// 	// start computation of rhs
+		// 	dg_f.set_rhs_zero();
 
-			// compute source for f
-			FastLagrInit fastLagr_source_f(dg_f, oper_matx_lagr);
-			double source_time = curr_time;
-			auto source_func_f = [&](std::vector<double> x, int i)->double
-			{
-				double x2 = x[0]; double v1 = x[1]; double v2 = x[2];
-				double pi = Const::PI; double t = source_time;				
-				if (i==0)
-				{
-					// return exp(t)*cos(2*pi*v2)*sin(2*pi*v1)*sin(2*pi*x2) - 2*pi*exp(t)*sin(2*pi*v1)*sin(2*pi*v2)*sin(2*pi*x2)*(exp(-t)*(2*pow(cos(2*pi*x2),2) - 1) - v1*cos(2*pi*x2)*(t + 1)) + 2*v2*pi*exp(t)*cos(2*pi*v2)*cos(2*pi*x2)*sin(2*pi*v1) + 2*pi*exp(t)*cos(2*pi*v1)*cos(2*pi*v2)*sin(2*pi*x2)*(exp(2*t)*sin(2*pi*x2) + v2*cos(2*pi*x2)*(t + 1));
-					return exp(t)*pow(cos(2*pi*v2),2)*pow(sin(2*pi*v1),2)*sin(2*pi*x2) + 2*v2*pi*exp(t)*pow(cos(2*pi*v2),2)*cos(2*pi*x2)*pow(sin(2*pi*v1),2) - 4*pi*exp(t)*cos(2*pi*v2)*pow(sin(2*pi*v1),2)*sin(2*pi*v2)*sin(2*pi*x2)*(exp(-t)*(2*pow(cos(2*pi*x2),2) - 1) - v1*cos(2*pi*x2)*(t + 1)) + 4*pi*exp(t)*cos(2*pi*v1)*pow(cos(2*pi*v2),2)*sin(2*pi*v1)*sin(2*pi*x2)*(exp(2*t)*sin(2*pi*x2) + v2*cos(2*pi*x2)*(t + 1));
-				}
-				else { return 0.; }
-			};
-			interp_f.source_from_lagr_to_rhs(source_func_f, fastLagr_source_f);
+		// 	// compute source for f
+		// 	FastLagrInit fastLagr_source_f(dg_f, oper_matx_lagr);
+		// 	double source_time = curr_time;
+		// 	auto source_func_f = [&](std::vector<double> x, int i)->double
+		// 	{
+		// 		double x2 = x[0]; double v1 = x[1]; double v2 = x[2];
+		// 		double pi = Const::PI; double t = source_time;				
+		// 		if (i==0)
+		// 		{
+		// 			// return exp(t)*cos(2*pi*v2)*sin(2*pi*v1)*sin(2*pi*x2) - 2*pi*exp(t)*sin(2*pi*v1)*sin(2*pi*v2)*sin(2*pi*x2)*(exp(-t)*(2*pow(cos(2*pi*x2),2) - 1) - v1*cos(2*pi*x2)*(t + 1)) + 2*v2*pi*exp(t)*cos(2*pi*v2)*cos(2*pi*x2)*sin(2*pi*v1) + 2*pi*exp(t)*cos(2*pi*v1)*cos(2*pi*v2)*sin(2*pi*x2)*(exp(2*t)*sin(2*pi*x2) + v2*cos(2*pi*x2)*(t + 1));
+		// 			return exp(t)*pow(cos(2*pi*v2),2)*pow(sin(2*pi*v1),2)*sin(2*pi*x2) + 2*v2*pi*exp(t)*pow(cos(2*pi*v2),2)*cos(2*pi*x2)*pow(sin(2*pi*v1),2) - 4*pi*exp(t)*cos(2*pi*v2)*pow(sin(2*pi*v1),2)*sin(2*pi*v2)*sin(2*pi*x2)*(exp(-t)*(2*pow(cos(2*pi*x2),2) - 1) - v1*cos(2*pi*x2)*(t + 1)) + 4*pi*exp(t)*cos(2*pi*v1)*pow(cos(2*pi*v2),2)*sin(2*pi*v1)*sin(2*pi*x2)*(exp(2*t)*sin(2*pi*x2) + v2*cos(2*pi*x2)*(t + 1));
+		// 		}
+		// 		else { return 0.; }
+		// 	};
+		// 	interp_f.source_from_lagr_to_rhs(source_func_f, fastLagr_source_f);
 
-			fast_rhs_lagr.rhs_vol_scalar();
-			fast_rhs_lagr.rhs_flx_intp_scalar();
-			fast_rhs_alpt.rhs_flx_penalty_scalar({lxf_alpha, lxf_alpha, lxf_alpha});
+		// 	fast_rhs_lagr.rhs_vol_scalar();
+		// 	fast_rhs_lagr.rhs_flx_intp_scalar();
+		// 	fast_rhs_alpt.rhs_flx_penalty_scalar({lxf_alpha, lxf_alpha, lxf_alpha});
 
-			// add to rhs in odeSolver_f
-			odeSolver_f.set_rhs_zero();
-			odeSolver_f.add_rhs_to_eigenvec();
-			// odeSolver_f.add_rhs_matrix(linear_f);
+		// 	// add to rhs in odeSolver_f
+		// 	odeSolver_f.set_rhs_zero();
+		// 	odeSolver_f.add_rhs_to_eigenvec();
+		// 	// odeSolver_f.add_rhs_matrix(linear_f);
 
-			odeSolver_f.step_stage(0);
+		// 	odeSolver_f.step_stage(0);
 			
-			// copy ODESolver::ucoe to Element::ucoe_alpt for f and set ODESolver::rhs to be zero ---
-			odeSolver_f.final();
-		}
+		// 	// copy ODESolver::ucoe to Element::ucoe_alpt for f and set ODESolver::rhs to be zero ---
+		// 	odeSolver_f.final();
+		// }
 
-		// --- part 3: refine f base on Element::ucoe_alpt
-		dg_f.refine();		
+		// // --- part 3: refine f base on Element::ucoe_alpt
+		// dg_f.refine();		
 		const int num_basis_refine = dg_f.size_basis_alpt();
 		const int max_mesh_level_refine = dg_f.max_mesh_level();
 
-		// after refine, copy Element::ucoe_alpt_predict back to Element::ucoe_alpt
-		dg_f.copy_predict_to_ucoe();
+		// // after refine, copy Element::ucoe_alpt_predict back to Element::ucoe_alpt
+		// dg_f.copy_predict_to_ucoe();
 
         // --- part 4: time evolution
 		// // linear operator for f (only flux integral)
@@ -287,9 +329,11 @@ int main(int argc, char *argv[])
         for ( int stage = 0; stage < odeSolver_f.num_stage; ++stage )
         {			
 			// --- step 1: update RHS for f ---
-            // Lagrange interpolation
-            LagrInterpolation interp_f(dg_f);
-			interp_f.interp_Vlasov_1D2V(dg_BE, fast_lagr_intp_f, fast_lagr_intp_BE);
+            // // Lagrange interpolation
+            LagrInterpolation intp_lagr_f(dg_f);
+			intp_lagr_f.interp_Vlasov_1D2V(dg_BE, fast_lagr_intp_f, fast_lagr_intp_BE);			
+			// // Hermite interpolation
+			// intp_herm_f.interp_Herm_Vlasov_1D2V(dg_BE, fast_herm_intp_f, fast_herm_intp_BE);
 
 			// start computation of rhs
             dg_f.set_rhs_zero();
@@ -305,16 +349,18 @@ int main(int argc, char *argv[])
 				double pi = Const::PI; double t = source_time;				
 				if (i==0)
 				{
-					// return exp(t)*cos(2*pi*v2)*sin(2*pi*v1)*sin(2*pi*x2) - 2*pi*exp(t)*sin(2*pi*v1)*sin(2*pi*v2)*sin(2*pi*x2)*(exp(-t)*(2*pow(cos(2*pi*x2),2) - 1) - v1*cos(2*pi*x2)*(t + 1)) + 2*v2*pi*exp(t)*cos(2*pi*v2)*cos(2*pi*x2)*sin(2*pi*v1) + 2*pi*exp(t)*cos(2*pi*v1)*cos(2*pi*v2)*sin(2*pi*x2)*(exp(2*t)*sin(2*pi*x2) + v2*cos(2*pi*x2)*(t + 1));
-					return exp(t)*pow(cos(2*pi*v2),2)*pow(sin(2*pi*v1),2)*sin(2*pi*x2) + 2*v2*pi*exp(t)*pow(cos(2*pi*v2),2)*cos(2*pi*x2)*pow(sin(2*pi*v1),2) - 4*pi*exp(t)*cos(2*pi*v2)*pow(sin(2*pi*v1),2)*sin(2*pi*v2)*sin(2*pi*x2)*(exp(-t)*(2*pow(cos(2*pi*x2),2) - 1) - v1*cos(2*pi*x2)*(t + 1)) + 4*pi*exp(t)*cos(2*pi*v1)*pow(cos(2*pi*v2),2)*sin(2*pi*v1)*sin(2*pi*x2)*(exp(2*t)*sin(2*pi*x2) + v2*cos(2*pi*x2)*(t + 1));
+					// return exp(t)*pow(cos(2*pi*v2),2)*pow(sin(2*pi*v1),2)*sin(2*pi*x2) + 2*v2*pi*exp(t)*pow(cos(2*pi*v2),2)*cos(2*pi*x2)*pow(sin(2*pi*v1),2) - 4*pi*exp(t)*cos(2*pi*v2)*pow(sin(2*pi*v1),2)*sin(2*pi*v2)*sin(2*pi*x2)*(exp(-t)*(2*pow(cos(2*pi*x2),2) - 1) - v1*cos(2*pi*x2)*(t + 1)) + 4*pi*exp(t)*cos(2*pi*v1)*pow(cos(2*pi*v2),2)*sin(2*pi*v1)*sin(2*pi*x2)*(exp(2*t)*sin(2*pi*x2) + v2*cos(2*pi*x2)*(t + 1));
+					return pow(cos(2*pi*v2),2)*pow(sin(2*pi*v1),2)*sin(2*pi*x2)*cos(t) + 2*v2*pi*pow(cos(2*pi*v2),2)*cos(2*pi*x2)*pow(sin(2*pi*v1),2)*sin(t) + 4*pi*cos(2*pi*v2)*pow(sin(2*pi*v1),2)*sin(2*pi*v2)*sin(2*pi*x2)*cos(t)*sin(t)*(v1*cos(2*pi*x2) - 2*pow(cos(2*pi*x2),2) + 1) + 4*pi*cos(2*pi*v1)*pow(cos(2*pi*v2),2)*sin(2*pi*v1)*sin(2*pi*x2)*cos(t)*sin(t)*(sin(2*pi*x2) + v2*cos(2*pi*x2));
 				}
 				else { return 0.; }
 			};
-			interp_f.source_from_lagr_to_rhs(source_func_f, fastLagr_source_f);
-
+			intp_lagr_f.source_from_lagr_to_rhs(source_func_f, fastLagr_source_f);
+			
 			fast_rhs_lagr.rhs_vol_scalar();
 			fast_rhs_lagr.rhs_flx_intp_scalar();
-			fast_rhs_alpt.rhs_flx_penalty_scalar({lxf_alpha, lxf_alpha, lxf_alpha});
+			// fast_rhs_herm.rhs_vol_scalar();
+			// fast_rhs_herm.rhs_flx_intp_scalar();
+			fast_rhs_alpt.rhs_flx_penalty_scalar(lxf_alpha);
             
 			// add to rhs in odeSolver_f
             odeSolver_f.set_rhs_zero();
@@ -343,20 +389,20 @@ int main(int argc, char *argv[])
 				// source for B3
 				if (i==0)
 				{
-					return -cos(2*pi*x2)*(2*pi*exp(2*t) - 1);
+					// return -cos(2*pi*x2)*(2*pi*exp(2*t) - 1);
+					return -cos(2*pi*x2)*(sin(t) + 2*pi*cos(t));
 				}
 				// source for E1
 				else if (i==1)
 				{
-					// return 2*sin(2*pi*x2)*(pi + exp(2*t) + pi*t);
-					return (sin(2*pi*x2)*(16*pi + 16*exp(2*t) + exp(t) + 16*pi*t))/8;
-
+					// return (sin(2*pi*x2)*(16*pi + 16*exp(2*t) + exp(t) + 16*pi*t))/8;
+					return -(sin(2*pi*x2)*(7*sin(t) - 16*pi*cos(t)))/8;
 				}
 				// source for E2
 				else
 				{
-					// return -exp(-t)*cos(4*pi*x2);
-					return (exp(-t)*(exp(2*t)*sin(2*pi*x2) + 16*pow(sin(2*pi*x2),2) - 8))/8;
+					// return (exp(-t)*(exp(2*t)*sin(2*pi*x2) + 16*pow(sin(2*pi*x2),2) - 8))/8;
+					return (sin(t)*(sin(2*pi*x2) + 16*pow(sin(2*pi*x2),2) - 8))/8;
 				}
 			};
 			interp_BE.source_from_lagr_to_rhs(source_func_BE, fastLagr_source_BE);
@@ -376,8 +422,8 @@ int main(int argc, char *argv[])
 			odeSolver_BE.final();
         }
 
-		// --- part 5: coarsen
-		dg_f.coarsen();
+		// // --- part 5: coarsen
+		// dg_f.coarsen();
 		const int num_basis_coarsen = dg_f.size_basis_alpt();
 		const int max_mesh_level_coarsen = dg_f.max_mesh_level();		
 
@@ -392,6 +438,7 @@ int main(int argc, char *argv[])
 			std::cout << "num of time steps: " << num_time_step 
 					<< "; time step: " << dt 
 					<< "; current time: " << curr_time << std::endl
+					<< "max abs value of B3, E1, E2: " << max_abs_B3 << " " << max_abs_E1 << " " << max_abs_E2 << std::endl
 					<< "num of basis after refine: " << num_basis_refine
 					<< "; max mesh level after refine: " << max_mesh_level_refine << std::endl
 					<< "num of basis after coarsen: " << num_basis_coarsen
@@ -411,7 +458,8 @@ int main(int argc, char *argv[])
 	{
 		double x2 = x[0]; double v1 = x[1]; double v2 = x[2];
 		double pi = Const::PI; double t = final_time;
-		return sin(2*pi*(x2)) * pow(sin(2*pi*(v1)), 2.) * pow(cos(2*pi*(v2)), 2.) * exp(t);
+		// return sin(2*pi*(x2)) * pow(sin(2*pi*(v1)), 2.) * pow(cos(2*pi*(v2)), 2.) * exp(t);
+		return sin(2*pi*(x2)) * pow(sin(2*pi*(v1)), 2.) * pow(cos(2*pi*(v2)), 2.) * sin(t);
 	};
 	double refine_eps_ext = 1e-6;
 	double coarsen_eta = -1;
