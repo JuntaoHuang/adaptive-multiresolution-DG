@@ -550,6 +550,28 @@ private:
 };
 
 /**
+ * @brief Fast algorithm for computing rhs for scalar hyperbolic equation in arbitrary dimension using Hermite interpolation basis
+ * 
+ */
+class HyperbolicHermRHS:
+    public FastRHS
+{
+public:
+    HyperbolicHermRHS(DGSolution & dgsolution, OperatorMatrix1D<HermBasis, AlptBasis> & oper_matx_herm): 
+        FastRHS(dgsolution), oper_matx_herm_ptr(&oper_matx_herm) {};
+    ~HyperbolicHermRHS() {};
+
+    // volume integral
+    void rhs_vol_scalar();
+
+    // flux integral on interpolation part
+    void rhs_flx_intp_scalar();
+
+private:
+    OperatorMatrix1D<HermBasis, AlptBasis>* const oper_matx_herm_ptr;
+};
+
+/**
  * @brief Fast algorithm for computing rhs for linear scalar hyperbolic equation in arbitrary dimension
  * 
  */

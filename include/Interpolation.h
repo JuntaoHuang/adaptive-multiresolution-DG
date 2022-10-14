@@ -279,6 +279,9 @@ class HermInterpolation:
 									std::function<double(std::vector<double>, int, int, int, int, int)>  func_d3,
 									std::function<double(std::vector<double>, int, int, int, int, int, int)>  func_d4,
 									std::vector< std::vector<bool> > is_intp, FastHermIntp & fastHerm);
+
+		// Hermite interpolation for 1D2V Vlasov equation
+		void interp_Herm_Vlasov_1D2V(DGSolution & dg_BE, FastHermIntp & fastHerm_f, FastHermIntp & fastHerm_BE);		
 		
 		// Initialization based on Hermite interpolation to Alpert basis
 		// this will update up_alpt in the class Element
@@ -380,6 +383,10 @@ class HermInterpolation:
 
 	void plot_error(std::function<double(double, int)> func);
     
+	void eval_fp_Vlasov_1D2V_P3();
+
+	// TO BE COMPLETED
+	void eval_fp_Vlasov_1D2V_P5();
 };
 
 

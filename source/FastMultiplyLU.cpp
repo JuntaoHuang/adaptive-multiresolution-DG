@@ -854,6 +854,54 @@ void HyperbolicLagrRHS::rhs_flx_intp_scalar()
     }
 }
 
+void HyperbolicHermRHS::rhs_vol_scalar()
+{
+    const int dim = dgsolution_ptr->DIM;
+    
+    std::vector<const VecMultiD<double>*> oper_matx_1D;
+    std::vector<std::string> operator_type(dim, "vol");
+    for (size_t d = 0; d < dim; d++)
+    {
+        oper_matx_1D.clear();
+        for (size_t dim_derivative = 0; dim_derivative < dim; dim_derivative++)
+        {
+            if (dim_derivative == d) { oper_matx_1D.push_back(&(oper_matx_herm_ptr->u_vx)); }
+            else { oper_matx_1D.push_back(&(oper_matx_herm_ptr->u_v)); }
+        }
+        transform_fucoe_to_rhs(oper_matx_1D, operator_type, d);
+    }
+}
+
+void HyperbolicHermRHS::rhs_flx_intp_scalar()
+{
+    const int dim = dgsolution_ptr->DIM;
+
+    const VecMultiD<double> oper_matx_uave_vjp = oper_matx_herm_ptr->ulft_vjp + oper_matx_herm_ptr->urgt_vjp;
+
+    std::vector<const VecMultiD<double>*> oper_matx_1D;
+    std::vector<std::string> operator_type;
+    for (size_t d = 0; d < dim; d++)
+    {
+        oper_matx_1D.clear();
+        operator_type.clear();
+
+        for (size_t dim_derivative = 0; dim_derivative < dim; dim_derivative++)
+        {
+            if (dim_derivative == d) 
+            { 
+                oper_matx_1D.push_back(&oper_matx_uave_vjp);
+                operator_type.push_back("flx");
+            }
+            else 
+            { 
+                oper_matx_1D.push_back(&oper_matx_herm_ptr->u_v);
+                operator_type.push_back("vol");
+            }
+        }
+        transform_fucoe_to_rhs(oper_matx_1D, operator_type, d, 0.5);
+    }
+}
+
 void HyperbolicAlptRHS::rhs_flx_penalty_scalar(const std::vector<double> & lax_alpha)
 {
     const int dim = dgsolution_ptr->DIM;

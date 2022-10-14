@@ -2042,7 +2042,6 @@ void HermInterpolation::eval_up_Her()
 // k=0, l=1: 2nd_order derivative ------> fuv
 // k=1, l=0: 2nd_order derivative ------> fvu
 // k=1, l=1: 2nd_order derivative ------> fvv
-
 void HermInterpolation::eval_fp_Her_2D(std::function<double(std::vector<double>, int, int)> func,
 	std::function<double(std::vector<double>, int, int, int)> func_d1,
 	std::function<double(std::vector<double>, int, int, int, int)> func_d2,
@@ -3117,7 +3116,6 @@ void HermInterpolation::eval_up_exact_ada_Her(std::function<double(std::vector<d
 }
 
 // from degree to get the index of point and derivative 
-
 void HermInterpolation::deg_pt_deri_1d(const int pp, int & p, int & l)
 {
 	// p: index for point
@@ -4611,6 +4609,383 @@ void HermInterpolation::nonlinear_Herm_2D_fast(std::function<double(std::vector<
 	eval_fp_to_coe_D_Her(is_intp);
 }
 
+void HermInterpolation::interp_Herm_Vlasov_1D2V(DGSolution & dg_BE, FastHermIntp & fastHerm_f, FastHermIntp & fastHerm_BE)
+{
+	// step 1: fast transform, f alpert coefficients -> point values (store in Element::up_intp in f)
+	// only do transformation in the first component
+	// ---- MODIFY THIS LATER ---
+	fastHerm_f.eval_up_Herm();
+
+	// step 2: fast transform, E alpert coefficients -> point values (store in Element::up_intp in E)
+	fastHerm_BE.eval_up_Herm();
+
+	// step 3: copy Element::up_intp in E to Element::up_intp_other in f
+	const std::vector<int> num_vec_f{0, 1, 2};
+	const std::vector<int> num_vec_E{0, 1, 2};	// dg_BE = {B3, E1, E2}
+	const std::vector<int> vel_dim_f{1, 2};
+	dgsolution_ptr->copy_up_intp_to_f(dg_BE, num_vec_f, num_vec_E, vel_dim_f);
+
+	// step 4: compute v2 * f, (E1 + v2 * B3) * f, (E2 - v1 * B3) * f point value and derivatives
+	this->eval_fp_Vlasov_1D2V_P3();
+
+	// step 5: transform point value and derivatives to interpolation coefficients
+	std::vector< std::vector<bool> > is_intp;
+	is_intp.push_back(std::vector<bool>(DIM, true));	// interpolation for the 1st vec_num in all dimensions
+	is_intp.push_back(std::vector<bool>(DIM, false));	// no interpolation for the 2nd vec_num in all dimensions
+	is_intp.push_back(std::vector<bool>(DIM, false));	// no interpolation for the 2nd vec_num in all dimensions		
+	pw1d.clear();
+	eval_fp_to_coe_D_Her(is_intp);
+}
+
+// compute value of function or derivative for f(u)
+void HermInterpolation::eval_fp_Vlasov_1D2V_P3()
+{
+	assert(dgsolution_ptr->DIM == 3 && HermBasis::PMAX == 3);
+
+	// loop over all the elements in f
+	for (auto it = dgsolution_ptr->dg.begin(); it != dgsolution_ptr->dg.end(); it++)
+	{
+		const std::vector<int> & l = it->second.level;
+		const std::vector<int> & j = it->second.suppt;
+
+		std::vector<std::vector<int>> & order = it->second.order_local_intp;
+
+		std::vector<VecMultiD<double> > & up = it->second.up_intp;
+		std::vector<VecMultiD<double> > & up_other = it->second.up_intp_other;
+		std::vector< std::vector< VecMultiD<double> > > & fp = it->second.fp_intp;
+
+		std::vector<double> pos(DIM);
+
+		std::vector<int> p(DIM);
+
+		// index for point
+		// 0 (left interpolation point x = 0) or 1 (right interpolation point x = 1)
+		std::vector<int> q(DIM);
+
+		// index for function or derivative
+		// 0 (value of function) or 1 (1st-order derivative of function)
+		std::vector<int> k(DIM);
+
+		// loop over all the polynomial degrees in each element
+		for (auto it0 = order.begin(); it0 != order.end(); it0++)
+		{						
+			for (int d = 0; d < DIM; d++) 
+			{
+				// compute index for point and derivative
+				deg_pt_deri_1d((*it0)[d], q[d], k[d]);
+
+				// polynomial degree of interpolation basis
+				p[d] = (*it0)[d];
+				
+				// compute coordinate of interpolation point
+				pos[d] = dgsolution_ptr->all_bas_Her.at(l[d], j[d], p[d]).intep_pt; 
+			}
+
+			// pos = (x2, v1, v2)
+			double v1 = pos[1]; double v2 = pos[2];
+
+			// (0, 0, 0): value of function
+			if (k[0] == 0 && k[1] == 0 && k[2] == 0)
+			{
+				double f = up[0].at(*it0);
+
+				// dg_BE = {B3, E1, E2}
+				double B3 = up_other[0].at(*it0);
+				double E1 = up_other[1].at(*it0);
+				double E2 = up_other[2].at(*it0);
+
+				// d = 0, v2 * f
+				fp[0][0].at(*it0) = v2 * f;
+
+				// d = 1, (E1 + v2 * B3) * f
+				fp[0][1].at(*it0) = (E1 + v2 * B3) * f;
+
+				// d = 2, (E2 - v1 * B3) * f
+				fp[0][2].at(*it0) = (E2 - v1 * B3) * f;				
+
+			}
+			// (1, 0, 0): 1st-order derivative w.r.t. x of function
+			else if (k[0] == 1 && k[1] == 0 && k[2] == 0)
+			{
+				// read f_x
+				double f_x = up[0].at(*it0);
+				double B3_x = up_other[0].at(*it0);
+				double E1_x = up_other[1].at(*it0);
+				double E2_x = up_other[2].at(*it0);
+
+				// read f
+				p[0] = (*it0)[0] - 2;
+				p[1] = (*it0)[1];
+				p[2] = (*it0)[2];
+				
+				double f = up[0].at(p);
+				double B3 = up_other[0].at(p);
+				double E1 = up_other[1].at(p);
+				double E2 = up_other[2].at(p);
+
+				// d = 0, v2 * f_x
+				fp[0][0].at(*it0) = v2 * f_x;
+
+				// d = 1, (E1_x + v2 * B3_x) * f + (E1 + v2 * B3) * f_x
+				fp[0][1].at(*it0) = (E1_x + v2 * B3_x) * f + (E1 + v2 * B3) * f_x;
+
+				// d = 2, (E2_x - v1 * B3_x) * f + (E2 - v1 * B3) * f_x
+				fp[0][2].at(*it0) = (E2_x - v1 * B3_x) * f + (E2 - v1 * B3) * f_x;				
+			}
+			// (0, 1, 0): 1st-order derivative w.r.t. v1
+			else if (k[0] == 0 && k[1] == 1 && k[2] == 0)
+			{
+				// read f_v1
+				double f_v1 = up[0].at(*it0);
+
+				// read f
+				p[0] = (*it0)[0];
+				p[1] = (*it0)[1] - 2;
+				p[2] = (*it0)[2];	
+				
+				double f = up[0].at(p);
+				double B3 = up_other[0].at(p);
+				double E1 = up_other[1].at(p);
+				double E2 = up_other[2].at(p);
+
+				// d = 0, v2 * f_v1
+				fp[0][0].at(*it0) = v2 * f_v1;
+
+				// d = 1, (E1 + v2 * B3) * f_v1
+				fp[0][1].at(*it0) = (E1 + v2 * B3) * f_v1;
+
+				// d = 2, -B3 * f + (E2 - v1 * B3) * f_v1
+				fp[0][2].at(*it0) = -B3 * f + (E2 - v1 * B3) * f_v1;
+			}
+			// (1, 1, 0): 2nd-order derivative w.r.t. x and v1
+			else if (k[0] == 1 && k[1] == 1 && k[2] == 0)
+			{
+				// read f_xv1
+				double f_xv1 = up[0].at(*it0);
+
+				// read f_x
+				p[0] = (*it0)[0];
+				p[1] = (*it0)[1] - 2;
+				p[2] = (*it0)[2];
+				
+				double f_x = up[0].at(p);
+				double B3_x = up_other[0].at(p);
+				double E1_x = up_other[1].at(p);
+				double E2_x = up_other[2].at(p);
+
+				// read f_v1
+				p[0] = (*it0)[0] - 2;
+				p[1] = (*it0)[1];
+				p[2] = (*it0)[2];
+				
+				double f_v1 = up[0].at(p);
+
+				// read f
+				p[0] = (*it0)[0] - 2;
+				p[1] = (*it0)[1] - 2;
+				p[2] = (*it0)[2];
+				
+				double f = up[0].at(p);
+				double B3 = up_other[0].at(p);
+				double E1 = up_other[1].at(p);
+				double E2 = up_other[2].at(p);
+
+				// d = 0, v2 * f_xv1
+				fp[0][0].at(*it0) = v2 * f_xv1;
+
+				// d = 1, (E1_x + v2 * B3_x) * f_v1 + (E1 + v2 * B3) * f_xv1
+				fp[0][1].at(*it0) = (E1_x + v2 * B3_x) * f_v1 + (E1 + v2 * B3) * f_xv1;
+
+				// d = 2, -B3_x * f - B3 * f_x + (E2_x - v1 * B3_x) * f_v1 + (E2 - v1 * B3) * f_xv1
+				fp[0][2].at(*it0) = -B3_x * f - B3 * f_x + (E2_x - v1 * B3_x) * f_v1 + (E2 - v1 * B3) * f_xv1;
+			}
+			// (0, 0, 1): 1st-order derivative w.r.t. v2
+			else if (k[0] == 0 && k[1] == 0 && k[2] == 1)
+			{
+				// read f_v2
+				double f_v2 = up[0].at(*it0);
+
+				// read f
+				p[0] = (*it0)[0];
+				p[1] = (*it0)[1];
+				p[2] = (*it0)[2] - 2;
+				
+				double f = up[0].at(p);
+				double B3 = up_other[0].at(p);
+				double E1 = up_other[1].at(p);
+				double E2 = up_other[2].at(p);
+
+				// d = 0, f + v2 * f_v2
+				fp[0][0].at(*it0) = f + v2 * f_v2;
+
+				// d = 1, B3 * f + (E1 + v2 * B3) * f_v2
+				fp[0][1].at(*it0) = B3 * f + (E1 + v2 * B3) * f_v2;
+
+				// d = 2, (E2 - v1 * B3) * f_v2
+				fp[0][2].at(*it0) = (E2 - v1 * B3) * f_v2;
+			}
+			// (1, 0, 1): 2nd-order derivative w.r.t. x and v2
+			else if (k[0] == 1 && k[1] == 0 && k[2] == 1)
+			{
+				// read f_xv2
+				double f_xv2 = up[0].at(*it0);
+
+				// read f_x
+				p[0] = (*it0)[0];
+				p[1] = (*it0)[1];
+				p[2] = (*it0)[2] - 2;
+				
+				double f_x = up[0].at(p);
+				double B3_x = up_other[0].at(p);
+				double E1_x = up_other[1].at(p);
+				double E2_x = up_other[2].at(p);
+
+				// read f_v2
+				p[0] = (*it0)[0] - 2;
+				p[1] = (*it0)[1];
+				p[2] = (*it0)[2];
+				
+				double f_v2 = up[0].at(p);
+
+				// read f
+				p[0] = (*it0)[0] - 2;
+				p[1] = (*it0)[1];
+				p[2] = (*it0)[2] - 2;
+				
+				double f = up[0].at(p);
+				double B3 = up_other[0].at(p);
+				double E1 = up_other[1].at(p);
+				double E2 = up_other[2].at(p);
+
+				// d = 0, f_x + v2 * f_xv2
+				fp[0][0].at(*it0) = f_x + v2 * f_xv2;
+
+				// d = 1, B3_x * f + B3 * f_x + (E1_x + v2 * B3_x) * f_v2 + (E1 + v2 * B3) * f_xv2
+				fp[0][1].at(*it0) = B3_x * f + B3 * f_x + (E1_x + v2 * B3_x) * f_v2 + (E1 + v2 * B3) * f_xv2;
+
+				// d = 2, (E2_x - v1 * B3_x) * f_v2 + (E2 - v1 * B3) * f_xv2
+				fp[0][2].at(*it0) = (E2_x - v1 * B3_x) * f_v2 + (E2 - v1 * B3) * f_xv2;
+			}
+			// (0, 1, 1): 2nd-order derivative w.r.t. v1 and v2
+			else if (k[0] == 0 && k[1] == 1 && k[2] == 1)
+			{
+				// read f_v1v2
+				double f_v1v2 = up[0].at(*it0);
+
+				// read f_v1
+				p[0] = (*it0)[0];
+				p[1] = (*it0)[1];
+				p[2] = (*it0)[2] - 2;
+
+				double f_v1 = up[0].at(p);			
+
+				// read f_v2
+				p[0] = (*it0)[0];
+				p[1] = (*it0)[1] - 2;
+				p[2] = (*it0)[2];
+				
+				double f_v2 = up[0].at(p);
+
+				// read f
+				p[0] = (*it0)[0];
+				p[1] = (*it0)[1] - 2;
+				p[2] = (*it0)[2] - 2;
+				
+				double f = up[0].at(p);
+				double B3 = up_other[0].at(p);
+				double E1 = up_other[1].at(p);
+				double E2 = up_other[2].at(p);
+
+				// d = 0
+				fp[0][0].at(*it0) = f_v1 + v2 * f_v1v2;
+
+				// d = 1
+				fp[0][1].at(*it0) = B3 * f_v1 + (E1 + v2 * B3) * f_v1v2;
+
+				// d = 2
+				fp[0][2].at(*it0) = -B3 * f_v2 + (E2 - v1 * B3) * f_v1v2;
+			}
+			// (1, 1, 1): 3rd-order derivative w.r.t. x, v1 and v2
+			else if (k[0] == 1 && k[1] == 1 && k[2] == 1)
+			{
+				// read f_xv1v2
+				double f_xv1v2 = up[0].at(*it0);
+
+				// read f_v1v2
+				p[0] = (*it0)[0] - 2;
+				p[1] = (*it0)[1];
+				p[2] = (*it0)[2];
+
+				double f_v1v2 = up[0].at(p);
+
+				// read f_xv2
+				p[0] = (*it0)[0];
+				p[1] = (*it0)[1] - 2;
+				p[2] = (*it0)[2];
+
+				double f_xv2 = up[0].at(p);
+
+				// read f_xv1
+				p[0] = (*it0)[0];
+				p[1] = (*it0)[1];
+				p[2] = (*it0)[2] - 2;
+
+				double f_xv1 = up[0].at(p);
+
+				// read f_v1
+				p[0] = (*it0)[0] - 2;
+				p[1] = (*it0)[1];
+				p[2] = (*it0)[2] - 2;
+				
+				double f_v1 = up[0].at(p);
+
+				// read f_v2
+				p[0] = (*it0)[0] - 2;
+				p[1] = (*it0)[1] - 2;
+				p[2] = (*it0)[2];
+				
+				double f_v2 = up[0].at(p);
+
+				// read f_x
+				p[0] = (*it0)[0];
+				p[1] = (*it0)[1] - 2;
+				p[2] = (*it0)[2] - 2;
+				
+				double B3_x = up_other[0].at(p);
+				double E1_x = up_other[1].at(p);
+				double E2_x = up_other[2].at(p);
+
+				// read f
+				p[0] = (*it0)[0] - 2;
+				p[1] = (*it0)[1] - 2;
+				p[2] = (*it0)[2] - 2;
+				
+				double B3 = up_other[0].at(p);
+				double E1 = up_other[1].at(p);
+				double E2 = up_other[2].at(p);
+
+				// d = 0
+				fp[0][0].at(*it0) = f_xv1 + v2 * f_xv1v2;
+
+				// d = 1
+				fp[0][1].at(*it0) = B3_x * f_v1 + B3 * f_xv1 + (E1_x + v2 * B3_x) * f_v1v2 + (E1 + v2 * B3) * f_xv1v2;
+
+				// d = 2
+				fp[0][2].at(*it0) = - B3_x * f_v2 - B3 * f_xv2 + (E2_x - v1 * B3_x) * f_v1v2 + (E2 - v1 * B3) * f_xv1v2;
+			}
+			else
+			{
+				std::cout << " error in HermInterpolation::eval_fp_Vlasov_1D2V()" << std::endl; exit(1);
+			}
+		}
+	}
+}
+
+void HermInterpolation::eval_fp_Vlasov_1D2V_P5()
+{
+	assert(dgsolution_ptr->DIM == 3 && HermBasis::PMAX == 5);
+	
+}
 
 void HermInterpolation::nonlinear_Herm_2D_PMAX5_scalar_fast(std::function<double(std::vector<double>, int, int)> func,
 	std::function<double(std::vector<double>, int, int, int)> func_d1,
