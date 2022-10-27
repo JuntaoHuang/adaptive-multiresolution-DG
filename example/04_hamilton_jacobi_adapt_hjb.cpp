@@ -257,7 +257,6 @@ int main(int argc, char *argv[])
 	int num_time_step = 0;
 	while (curr_time < final_time)
 	{
-
 		auto start_evolution_time = std::chrono::high_resolution_clock::now();
 
 		// --- part 1: calculate time step dt ---
@@ -272,14 +271,12 @@ int main(int argc, char *argv[])
 		double dt = cfl / sum_c_dx;
 		dt = std::min(dt, final_time - curr_time);
 
-
-
 		// --- part 2: predict by Euler forward
 		{
 			std::vector<HJOutflowAlpt> grad_linear(2 * DIM, HJOutflowAlpt(dg_solu, oper_matx_alpt, oper_matx_alpt_inside, 1));
 
 			omp_set_num_threads(2 * DIM);
-#pragma omp parallel for
+	#pragma omp parallel for
 			for (int d = 0; d < 2 * DIM; ++d) // 2 * DIM matrices for computing the gradient of phi via LDG
 			{
 				int sign = 2 * (d % 2) - 1;
@@ -300,8 +297,6 @@ int main(int argc, char *argv[])
 			odeSolver.compute_gradient_HJ(HJ); // compute the gradient of phi
 
 			interp.nonlinear_Lagr_fast(LFHamiltonian, is_intp, fastintp); // interpolate the LFHamiltonian
-			//interp.nonlinear_Lagr_fast(DodHamiltonian, is_intp, fastintp); // interpolate the LFHamiltonian
-
 
 			fastRHShj.rhs_nonlinear();
 
@@ -322,7 +317,7 @@ int main(int argc, char *argv[])
 		// --- part 4: time evolution
 		std::vector<HJOutflowAlpt> grad_linear(2 * DIM, HJOutflowAlpt(dg_solu, oper_matx_alpt, oper_matx_alpt_inside, 1));
 		omp_set_num_threads(2 * DIM);
-#pragma omp parallel for
+	#pragma omp parallel for
 		for (int d = 0; d < 2 * DIM; ++d) // 2 * DIM matrices for computing the gradient of phi via LDG
 		{
 			int sign = 2 * (d % 2) - 1;
@@ -332,8 +327,6 @@ int main(int argc, char *argv[])
 		}
 		HamiltonJacobiLDG HJ(grad_linear, DIM);
 
-		//HamiltonJacobiLagr nonlinearrk(dg_solu, oper_matx_lagr, oper_matx_herm, 1);
-		//RK3SSP odeSolver(nonlinearrk, dt);
 		RK3SSP odeSolver(dg_solu, dt);
 		odeSolver.init_HJ(HJ);
 
@@ -344,8 +337,7 @@ int main(int argc, char *argv[])
 			odeSolver.compute_gradient_HJ(HJ); // compute the gradient of phi
 
 			interp.nonlinear_Lagr_fast(LFHamiltonian, is_intp, fastintp); // interpolate the LFHamiltonian
-			//interp.nonlinear_Lagr_fast(DodHamiltonian, is_intp, fastintp); // interpolate the LFHamiltonian
-
+			
 			fastRHShj.rhs_nonlinear();
 
 			odeSolver.rhs_to_eigenvec("HJ");
@@ -359,18 +351,21 @@ int main(int argc, char *argv[])
 		dg_solu.coarsen();
 		const int num_basis_coarsen = dg_solu.size_basis_alpt();
 
-
 		curr_time += dt;
+		num_time_step += 1;
 
 		// record code running time
-		auto stop_evolution_time = std::chrono::high_resolution_clock::now();
-		auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop_evolution_time - start_evolution_time);
-		std::cout << "num of time steps: " << num_time_step
-			<< "; time step: " << dt
-			<< "; curr time: " << curr_time
-			<< "; running time: " << duration.count() / 1e6 << " seconds"
-			<< "; DOF: " << dg_solu.get_dof()
-			<< std::endl;
+		if (num_time_step % 10 == 0)
+		{		
+			auto stop_evolution_time = std::chrono::high_resolution_clock::now();
+			auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop_evolution_time - start_evolution_time);
+			std::cout << "num of time steps: " << num_time_step
+				<< "; time step: " << dt
+				<< "; curr time: " << curr_time
+				<< "; running time: " << duration.count() / 1e6 << " seconds"
+				<< "; DOF: " << dg_solu.get_dof()
+				<< std::endl;
+		}
 	}
 
 
@@ -421,7 +416,7 @@ int main(int argc, char *argv[])
 		err[1] = dg_solu.get_L2_error_split_adaptive_intp_scalar(dg_solu_ext);
 		std::string file_name = "error_N" + std::to_string(NMAX) + ".txt";
 		inout.write_error(NMAX, err, file_name);
-		std::cout << "L1, L2 and Linf error at final time: " << err[0] << ", " << err[1] << ", " << err[2] << std::endl;
+		std::cout << "L2 error at final time: " << err[1] << std::endl;
 		//std::cout << "L1, L2 and Linf error at final time: " << err2[0] << ", " << err2[1] << ", " << err2[2] << std::endl;
 		//inout.output_num_exa("exact.txt", final_func1);
 	}
