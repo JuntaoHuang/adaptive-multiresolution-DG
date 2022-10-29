@@ -56,6 +56,8 @@ double coeffcient_function_setup(std::vector<double> x, int d, int problem);
 
 int main(int argc, char *argv[])
 {
+	const int DIM = 3;
+
 	// static variables
 	AlptBasis::PMAX = 3;
 
@@ -67,7 +69,7 @@ int main(int argc, char *argv[])
 
 	Element::PMAX_alpt = AlptBasis::PMAX;	// max polynomial degree for Alpert's basis functions
 	Element::PMAX_intp = LagrBasis::PMAX;	// max polynomial degree for interpolation basis functions
-	Element::DIM = 2;			// dimension
+	Element::DIM = DIM;			// dimension
 	Element::VEC_NUM = 1;		// num of unknown variables in PDEs
 
 	DGSolution::DIM = Element::DIM;
@@ -84,7 +86,6 @@ int main(int argc, char *argv[])
 	for (size_t num = 0; num < Element::VEC_NUM; num++) { Element::is_intp[num] = std::vector<bool>(Element::DIM, true); }
 
 	// constant variable
-	const int DIM = Element::DIM;
 	int NMAX = 8;
 	int N_init = 2;
 	const bool sparse = false;

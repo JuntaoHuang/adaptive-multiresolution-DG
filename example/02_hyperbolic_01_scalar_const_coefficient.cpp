@@ -147,7 +147,7 @@ int main(int argc, char *argv[])
 
 	const int max_mesh = dg_solu.max_mesh_level();
 	const double dx = 1./pow(2., max_mesh);
-	double dt = dx * cfl;
+	double dt = dx * cfl / DIM;
 	int total_time_step = ceil(final_time/dt) + 1;
 	dt = final_time/total_time_step;
 
