@@ -37,11 +37,11 @@ int main(int argc, char *argv[])
 	// --------------------------------------------------------------------------------------------
 	// --- Part 1: preliminary part	---
 	// static variables
-	const int DIM = 3;
+	const int DIM = 4;
 
 	AlptBasis::PMAX = 2;
 
-	LagrBasis::PMAX = 3;
+	LagrBasis::PMAX = 5;
 	LagrBasis::msh_case = 1;
 
 	HermBasis::PMAX = 3;
@@ -122,13 +122,13 @@ int main(int argc, char *argv[])
 	DGAdaptIntp dg_solu(sparse, N_init, NMAX, all_bas_alpt, all_bas_lagr, all_bas_herm, hash, refine_eps, coarsen_eta, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp, oper_matx_lagr_lagr, oper_matx_herm_herm);
 
 	// initial condition
-	// u(x,0) = exp(cos(2 * pi * (sum_(d=1)^DIM x_d))
+	// u(x,0) = cos(2 * pi * (sum_(d=1)^DIM x_d)
 	auto init_non_separable_func = [=](std::vector<double> x, int i)
 	{	
 		double sum_x = 0.;
 		for (int d = 0; d < DIM; d++) { sum_x += x[d]; };
 
-		return exp(cos(2*Const::PI*sum_x));
+		return cos(2*Const::PI*sum_x);
 	};
 
 	dg_solu.init_adaptive_intp(init_non_separable_func);
@@ -194,10 +194,8 @@ int main(int argc, char *argv[])
 	// compute the error using adaptive interpolation
 	{
 		// construct anther DGsolution v_h and use adaptive Lagrange interpolation to approximate the exact solution
-		const double refine_eps_ext = 1e-5;
+		const double refine_eps_ext = 1e-6;
 		const double coarsen_eta_ext = -1; 
-		OperatorMatrix1D<HermBasis, HermBasis> oper_matx_herm_herm(all_bas_herm, all_bas_herm, boundary_type);
-		OperatorMatrix1D<LagrBasis, LagrBasis> oper_matx_lagr_lagr(all_bas_lagr, all_bas_lagr, boundary_type);
 		
 		DGAdaptIntp dg_solu_ext(sparse, N_init, NMAX, all_bas_alpt, all_bas_lagr, all_bas_herm, hash, refine_eps_ext, coarsen_eta_ext, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp, oper_matx_lagr_lagr, oper_matx_herm_herm);
 
@@ -205,7 +203,7 @@ int main(int argc, char *argv[])
 		{	
 			double sum_x = 0.;
 			for (int d = 0; d < DIM; d++) { sum_x += x[d]; };
-			return exp(cos(2.*Const::PI*(sum_x - DIM * final_time))); 
+			return cos(2.*Const::PI*(sum_x - DIM * final_time)); 
 		};
 		dg_solu_ext.init_adaptive_intp(final_func);
 
