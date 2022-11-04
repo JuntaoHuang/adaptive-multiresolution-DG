@@ -2,7 +2,11 @@
 
 AdaM-DG is an adaptive multiresolution sparse grid discontinuous Galerkin (DG) C++ package for solving partial differential equations in high dimensions.
 
-  
+## 
+For more details on the algorithm and package, see our paper:
+- [Adaptive sparse grid discontinuous Galerkin method: review and software implementation
+](https://arxiv.org/abs/2211.01531)
+
 
 ## Papers
 
