@@ -13,8 +13,8 @@ GTEST_LIBFLAGS = ./lib/libgtest.a
 #GTEST_LIBFLAGS = -lgtest
 
 
-DYLBFLAGS = -dynamiclib
-#DYLBFLAGS = -shared
+#DYLBFLAGS = -dynamiclib
+DYLBFLAGS = -shared
 
 CURRENT_VERSION = 1.0.1
 CURRENT_SONAME = 1
