@@ -4,8 +4,8 @@ CXX = g++-10 -fopenmp
 CPPFLAGS = -std=c++17 -O3
 #-Wall: open all warnings
 
-INCLUDES = -I include/ -I /usr/local/Cellar/eigen/3.3.7/include/eigen3 
-#INCLUDES = -I include/ -I Eigen_3_3/
+#INCLUDES = -I include/ -I /usr/local/Cellar/eigen/3.3.7/include/eigen3 
+INCLUDES = -I include/ -I ./eigen/
 
 ## gtest library as static library, with library file *.a stored in ./lib/
 GTEST_LIBFLAGS = ./lib/libgtest.a
