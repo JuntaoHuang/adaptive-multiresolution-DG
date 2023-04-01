@@ -19,6 +19,7 @@ For more details on the algorithm and package, see our paper:
 - Solving dispersive wave equations: [SIAM Journal on Scientific Computing](https://epubs.siam.org/doi/10.1137/21M1411391)
 
 
+## Documentation: [ReadTheDocs](https://adaptive-multiresolution-dg.readthedocs.io/en/latest/index.html)
 
 ## Build Requirement:
 
