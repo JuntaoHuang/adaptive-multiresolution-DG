@@ -4,14 +4,12 @@ CXX = g++-10 -fopenmp
 CPPFLAGS = -std=c++17 -O3
 #-Wall: open all warnings
 
-#INCLUDES = -I include/ -I /usr/local/Cellar/eigen/3.3.7/include/eigen3 
 INCLUDES = -I include/ -I ./eigen/
 
 ## gtest library as static library, with library file *.a stored in ./lib/
-GTEST_LIBFLAGS = ./lib/libgtest.a
+#GTEST_LIBFLAGS = ./lib/libgtest.a
 ## gtest library as shared library, with library file *.so stored in /usr/local/lib/; require sudo; some configuration might be needed
-#GTEST_LIBFLAGS = -lgtest
-
+GTEST_LIBFLAGS = -lgtest
 
 #DYLBFLAGS = -dynamiclib
 DYLBFLAGS = -shared
