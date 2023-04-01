@@ -9,6 +9,8 @@
 class Basis
 {
 public:
+	// if level=0,  then suppt=1
+	// if level>=1, then suppt=1,3,5,...,2^(level)-1
 	Basis(const int level_, const int suppt_, const int dgree_);
 	~Basis() {};
 
