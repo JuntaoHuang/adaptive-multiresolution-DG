@@ -4,9 +4,7 @@ AdaM-DG is an adaptive multiresolution sparse grid discontinuous Galerkin (DG) C
 
 ## 
 For more details on the algorithm and package, see our paper:
-- [Adaptive sparse grid discontinuous Galerkin method: review and software implementation
-](https://arxiv.org/abs/2211.01531)
-
+- [Adaptive sparse grid discontinuous Galerkin method: review and software implementation](https://link.springer.com/article/10.1007/s42967-023-00268-8)
 
 ## Papers
 
