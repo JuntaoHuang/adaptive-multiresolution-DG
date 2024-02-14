@@ -150,6 +150,26 @@ private:
 	Eigen::VectorXd u1;
 };
 
+// Midpoint method
+class RK2Midpoint:
+	public ExplicitRK
+{
+public:
+	RK2Midpoint(BilinearForm & BilinearForm, const double dt) : ExplicitRK(BilinearForm, dt), num_stage(2) { u1.resize(dof); };
+	RK2Midpoint(DGSolution & dg, const double dt) : ExplicitRK(dg, dt), num_stage(2) { u1.resize(dof); };
+	~RK2Midpoint() {};
+
+	// only works for DG operator keep unchanged
+	virtual void step_rk() override;
+
+	// rhs should be updated before using this function
+	virtual void step_stage(const int stage) override;
+
+	const int num_stage;    // number of stages: 2
+
+private:
+	Eigen::VectorXd u1;
+};
 
 
 class RK3SSP :

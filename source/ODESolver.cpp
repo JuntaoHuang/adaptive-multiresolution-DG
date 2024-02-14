@@ -235,6 +235,29 @@ void ODESolver::fucoe_to_eigenvec(const int dim)
 	 }
  }
 
+void RK2Midpoint::step_rk()
+{
+	dgoperator_ptr->multi(ucoe, rhs);
+	u1 = ucoe_tn + 0.5 * dt * rhs;
+
+	dgoperator_ptr->multi(u1, rhs);
+	ucoe = ucoe_tn + dt * rhs;
+}
+
+void RK2Midpoint::step_stage(const int stage)
+{
+	assert((stage >= 0) && (stage <= 1));
+
+	if (stage == 0)
+	{
+		ucoe = ucoe_tn + 0.5 * dt * rhs;
+	}
+	else if (stage == 1)
+	{
+		ucoe = ucoe_tn + dt * rhs;
+	}
+}
+
  void RK3SSP::step_rk()
  {
 	 dgoperator_ptr->multi(ucoe, rhs);

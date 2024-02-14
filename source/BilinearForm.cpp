@@ -86,6 +86,79 @@ void BilinearFormAlpt::assemble_matrix_alpt(const double operatorCoefficient, co
 	mat += matrix_local;
 }
 
+void BilinearFormAlpt::assemble_matrix_alpt_coarse_grid(const double operatorCoefficient, const int dim, const VecMultiD<double> & mat_operator, const VecMultiD<double> & mat_mass, const std::string integral_type, const int mesh_nmax, const int index_solu_variable, const int index_test_variable)
+{
+	// first build a list of triplets, and then convert it to a SparseMatrix
+	typedef Eigen::Triplet<double> T;
+	std::vector<T> tripletList; // may not be sufficient for high-dimensional problem
+	const int estimation_of_entries = pow(row, 1.5);
+	tripletList.reserve(estimation_of_entries);
+	Eigen::SparseMatrix<double> matrix_local(row, col);
+
+	// loop over all elements for test functions    
+	for (auto & iter_test : dgsolution_ptr->dg)
+	{	
+		// skip some elements
+		int test_sum_level = std::accumulate(iter_test.second.level.begin(), iter_test.second.level.end(), 0);
+		if (test_sum_level > mesh_nmax)	{ continue; }
+
+		// loop over all hash key related to this element
+		const std::unordered_set<Element*> & ptr_solu_elem_set = (integral_type == "vol") ? iter_test.second.ptr_vol_alpt[dim] : iter_test.second.ptr_flx_alpt[dim];
+
+		const std::vector<int> & order_local_test_basis = iter_test.second.order_local_alpt[0];
+		for (auto const & ptr_solu_elem : ptr_solu_elem_set)
+		{
+			// skip some elements
+			int solu_sum_level = std::accumulate(ptr_solu_elem->level.begin(), ptr_solu_elem->level.end(), 0);
+			if (solu_sum_level > mesh_nmax)	{ continue; }
+
+			int row_i = iter_test.second.order_alpt_basis_in_dg[index_test_variable].at(order_local_test_basis);
+			const std::vector<int> & order_local_solu_basis = ptr_solu_elem->order_local_alpt[0];
+			// loop over each test basis function (multi dimension) in test element
+			for (size_t index_test_basis = 0; index_test_basis < iter_test.second.size_alpt(); index_test_basis++)
+			{
+				// local and global order of test basis (multi dimension)
+				//const std::vector<int> & order_local_test_basis = iter_test.second.order_local_alpt[index_test_basis];
+				const std::vector<int> & order_global_test_basis = iter_test.second.order_global_alpt[index_test_basis];
+
+				int col_j = ptr_solu_elem->order_alpt_basis_in_dg[index_solu_variable].at(order_local_solu_basis);
+				// loop over each solution basis function in element
+				for (size_t index_solu_basis = 0; index_solu_basis < ptr_solu_elem->size_alpt(); index_solu_basis++)
+				{
+					// local and global order of solution basis (multi dimension)
+					//const std::vector<int> & order_local_solu_basis = ptr_solu_elem->order_local_alpt[index_solu_basis];
+					const std::vector<int> & order_global_solu_basis = ptr_solu_elem->order_global_alpt[index_solu_basis];
+
+					// row and col of operator matrix
+					//const int col_j = ptr_solu_elem->order_alpt_basis_in_dg[index_solu_variable].at(order_local_solu_basis);
+					//const int row_i = iter_test.second.order_alpt_basis_in_dg[index_test_variable].at(order_local_test_basis);
+
+					double mat_ij = operatorCoefficient * mat_operator.at(order_global_solu_basis[dim], order_global_test_basis[dim]);
+					for (size_t d = 0; d < dgsolution_ptr->DIM; d++)
+					{
+						if ((d != dim) && (order_global_solu_basis[d] != order_global_test_basis[d]))
+						{
+							mat_ij = 0.;
+							break;
+						}
+					}
+					if (std::abs(mat_ij)>=Const::ROUND_OFF)
+					{
+						tripletList.push_back(T(row_i, col_j, mat_ij));
+					}
+					col_j++;
+				}
+				row_i++;
+			}
+		}							
+	}	
+
+	matrix_local.setFromTriplets(tripletList.begin(), tripletList.end());
+
+	mat += matrix_local;
+}
+
+
 void BilinearFormAlpt::assemble_matrix_alpt(const double operatorCoefficient, const int dim, const std::vector<const VecMultiD<double>*> & mat_1D_array, const std::string & integral_type, const int index_solu_variable, const int index_test_variable)
 {
 	assert(mat_1D_array.size() == dgsolution_ptr->DIM);
@@ -632,6 +705,27 @@ void HyperbolicAlpt::assemble_matrix_scalar(const std::vector<double> & eqnCoeff
 		else
 		{
 			assemble_matrix_alpt(eqnCoefficient[dim], dim, oper_matx_alpt_ptr->urgt_vjp, oper_matx_alpt_ptr->u_v, "flx");
+		}
+	}
+}
+
+void HyperbolicAlpt::assemble_matrix_scalar_coarse_grid(const std::vector<double> & eqnCoefficient, const int mesh_nmax)
+{
+	assert(eqnCoefficient.size() == dgsolution_ptr->DIM);
+
+	for (int dim = 0; dim < dgsolution_ptr->DIM; dim++)
+	{
+		assemble_matrix_alpt_coarse_grid(eqnCoefficient[dim], dim, oper_matx_alpt_ptr->u_vx, oper_matx_alpt_ptr->u_v, "vol", mesh_nmax);
+
+		// positive coefficient, then upwind flux use left limit
+		if (eqnCoefficient[dim] >= 0)
+		{
+			assemble_matrix_alpt_coarse_grid(eqnCoefficient[dim], dim, oper_matx_alpt_ptr->ulft_vjp, oper_matx_alpt_ptr->u_v, "flx", mesh_nmax);
+		}
+		// negative coefficient, then upwind flux use right limit
+		else
+		{
+			assemble_matrix_alpt_coarse_grid(eqnCoefficient[dim], dim, oper_matx_alpt_ptr->urgt_vjp, oper_matx_alpt_ptr->u_v, "flx", mesh_nmax);
 		}
 	}
 }

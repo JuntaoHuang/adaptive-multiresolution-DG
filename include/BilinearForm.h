@@ -53,7 +53,10 @@ protected:
 	// overload, for PDE operators involving derivative in multiple dimension, e.g., \iint u * v_xyy
 	// this will be applied in class ZKAlpt
 	void assemble_matrix_alpt(const double operatorCoefficient, const int dim, const std::vector<const VecMultiD<double>*> & mat_1D_array, const std::string & integral_type, const int index_solu_variable = 0, const int index_test_variable = 0);
-	
+
+	// assemble matrix in coarse grid up to a given mesh level
+    void assemble_matrix_alpt_coarse_grid(const double operatorCoefficient, const int dim, const VecMultiD<double> & mat_operator, const VecMultiD<double> & mat_mass, const std::string integral_type, const int mesh_nmax, const int index_solu_variable = 0, const int index_test_variable = 0);
+
 	// overload, for PDE operators involving multiple terms involving interface
 	// this will be applied in jump terms in ZK equation
 	void assemble_matrix_alpt(const double operatorCoefficient, const std::vector<const VecMultiD<double>*> & mat_1D_array, const int index_solu_variable = 0, const int index_test_variable = 0);
@@ -140,6 +143,9 @@ public:
     // this function assemble matrix for linear scalar hyperbolic equations
     // coefficient is a 1D vector, size of dim, which stores coefficients of equation
     void assemble_matrix_scalar(const std::vector<double> & eqnCoefficient);
+
+	// assemble matrix for scalar hyperbolic equations in coarse grid
+    void assemble_matrix_scalar_coarse_grid(const std::vector<double> & eqnCoefficient, const int mesh_nmax);
 
     // flux integral of u^- * [v] or u^+ * [v]
     // sign: -1, left limit; 1, right limit
