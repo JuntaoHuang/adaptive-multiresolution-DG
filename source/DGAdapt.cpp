@@ -403,6 +403,61 @@ void DGAdapt::refine()
     update_order_all_basis_in_dgmap();
 }
 
+void DGAdapt::damping_leaf(const double damp_coef)
+{
+	for (auto & iter : this->dg)
+	{	
+		if ((iter.second.level[0] == NMAX))
+		{
+			iter.second.ucoe_alpt[0] *= damp_coef;
+		}
+	}
+
+	for (auto & i : viscosity_element)	
+	{
+		// auto iter = *i;
+		// print(iter.level[0]);
+		// iter.ucoe_alpt[0] *= damp_coef;
+		// for (auto & iter_par : iter.hash_ptr_par)
+		// {
+		// 	iter_par.second->ucoe_alpt[0] *= damp_coef;
+		// }
+
+		// if ((iter.second.level[0] == NMAX))
+		// {
+		// 	iter.second.ucoe_alpt[0] *= damp_coef;
+		// }
+        // // max mesh level of this element in all dimensions
+        // const int max_mesh_level = *(std::max_element(std::begin(iter.second->level), std::end(iter.second->level)));
+
+        // // only consider element in finest mesh level
+        // if (max_mesh_level == NMAX)
+		// {	
+		// 	// iter.second->ucoe_alpt[0].print();
+		// 	iter.second->ucoe_alpt[0] *= damp_coef;
+
+		// 	// for (auto & iter_par : iter.second->hash_ptr_par)
+		// 	// {
+		// 	// 	iter_par.second->ucoe_alpt[0] *= damp_coef;
+		// 	// }
+		// }
+
+		// // loop over all its parent elements
+		// const std::set<std::array<std::vector<int>,2>> index_chd_elem = index_all_par(iter.second->level, iter.second->suppt);
+		// for (auto const & index : index_chd_elem)
+		// {
+		// 	int hash_key = hash.hash_key(index);
+			
+		// 	// if index is not in current child index set, then add it to dg solution
+		// 	if ( iter.second->hash_ptr_chd.find(hash_key) == iter.second->hash_ptr_chd.end())
+		// 	{
+		// 		Element elem(index[0], index[1], all_bas, hash);
+		// 		add_elem(elem);
+		// 	}                
+		// }			
+	}
+}
+
 // NOT TESTED
 void DGAdapt::refine(const int max_mesh, const std::vector<int> dim)
 {

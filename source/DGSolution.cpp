@@ -906,7 +906,29 @@ void DGSolution::update_order_all_basis_in_dgmap()
 	}
 }
 
+void DGSolution::print_order_all_basis_in_dg()
+{
+	int order_alpt_basis_in_dgmap = 0;
 
+	for (auto & iter : dg)
+	{
+		for (size_t num_vec = 0; num_vec < ind_var_vec.size(); num_vec++)
+		{
+			// update order of alpert basis
+			for (size_t num_basis = 0; num_basis < iter.second.size_alpt(); num_basis++)
+			{
+				const std::vector<int> & order_local_basis = iter.second.order_local_alpt[num_basis];
+				iter.second.order_alpt_basis_in_dg[num_vec].at(order_local_basis) = order_alpt_basis_in_dgmap;
+				
+				std::cout << "order: " << order_alpt_basis_in_dgmap
+						<< " level: " << iter.second.level[0]
+						<< " suppt: " << iter.second.suppt[0] <<  std::endl;
+				
+				order_alpt_basis_in_dgmap++;
+			}
+		}
+	}
+}
 
 
 std::vector<int> DGSolution::max_mesh_level_vec() const

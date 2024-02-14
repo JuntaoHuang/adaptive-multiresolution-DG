@@ -249,6 +249,8 @@ public:
 	 */
 	void source_elem_separable(Element & elem, const VecMultiD<double> & coefficient_1D, const int index_var = 0);
 
+	void print_order_all_basis_in_dg();
+
 protected:
 
 	const bool sparse;		///< control sparse grid (true) or full grid (false)
