@@ -300,6 +300,36 @@ void RK3SSP::step_rk_source(const Eigen::VectorXd & source)
 	 }
  }
 
+
+void RK3HeunLinear::step_rk()
+{
+
+}
+
+void RK3HeunLinear::step_rk_source(const Eigen::VectorXd & source)
+{
+	
+}
+
+void RK3HeunLinear::step_stage(const int stage)
+{
+	assert((stage >= 0) && (stage <= 2));
+
+	if (stage == 0)
+	{
+		ucoe = ucoe_tn + 1. / 3. * dt * rhs;
+	}
+	else if (stage == 1)
+	{
+		ucoe = ucoe_tn + 1. / 2. * dt * rhs;
+	}
+	else if (stage == 2)
+	{
+		ucoe = ucoe_tn + dt * rhs;
+	}
+}
+
+
  void RK4::step_rk()
  {
 	 //   0  |

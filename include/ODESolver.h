@@ -196,6 +196,30 @@ private:
 	Eigen::VectorXd u2;
 };
 
+// Heun's method for linear problem
+class RK3HeunLinear:
+	public ExplicitRK
+{
+public:
+	RK3HeunLinear(BilinearForm & BilinearForm, const double dt) : ExplicitRK(BilinearForm, dt), num_stage(3) { u1.resize(dof); u2.resize(dof); };
+	RK3HeunLinear(DGSolution & dg, const double dt) : ExplicitRK(dg, dt), num_stage(3) { u1.resize(dof); u2.resize(dof); };
+	~RK3HeunLinear() {};
+
+	// only works for DG operator keep unchanged
+	virtual void step_rk() override;
+
+	// only works for DG operator keep unchanged, with source term (also keep unchange with time)
+	void step_rk_source(const Eigen::VectorXd & source);
+
+	// rhs should be updated before using this function
+	virtual void step_stage(const int stage) override;
+
+	const int num_stage;    // number of stages: 3
+
+private:
+	Eigen::VectorXd u1;
+	Eigen::VectorXd u2;
+};
 
 class RK4 :
 	public ExplicitRK

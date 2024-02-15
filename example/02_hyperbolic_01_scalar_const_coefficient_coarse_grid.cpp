@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
 	int N_init = NMAX;	
 	int is_sparse = 1;
 	const std::string boundary_type = "period";
-	double final_time = 0.1;
+	double final_time = 10.0;
 	const double cfl = 0.1;
 	const bool is_adapt_find_ptr_alpt = true;	// variable control if need to adaptively find out pointers related to Alpert basis in DG operators
 	const bool is_adapt_find_ptr_intp = false;	// variable control if need to adaptively find out pointers related to interpolation basis in DG operators
@@ -154,14 +154,21 @@ int main(int argc, char *argv[])
 	HyperbolicAlpt dg_operator(dg_solu, oper_matx);
 	dg_operator.assemble_matrix_scalar(hyperbolicConst);
 	
-	// DG operator for coarser grid
-	HyperbolicAlpt dg_operator_coarse_grid(dg_solu, oper_matx);
-	int NMAX_coarse_grid = 0;
-	if (NMAX % 2 == 0) { NMAX_coarse_grid = NMAX/2; }
-	else { NMAX_coarse_grid = (NMAX+1)/2; }
-	dg_operator_coarse_grid.assemble_matrix_scalar_coarse_grid(hyperbolicConst, NMAX_coarse_grid);
+	// DG operator for coarser grid in stage 1
+	HyperbolicAlpt dg_operator_coarse_grid_stage_1(dg_solu, oper_matx);
+	int NMAX_coarse_grid_stage_1 = int(ceil(1.0*NMAX/2.0));
+	dg_operator_coarse_grid_stage_1.assemble_matrix_scalar_coarse_grid(hyperbolicConst, NMAX_coarse_grid_stage_1);
+
+	// DG operator for coarser grid in stage 2
+	HyperbolicAlpt dg_operator_coarse_grid_stage_2(dg_solu, oper_matx);
+	int NMAX_coarse_grid_stage_2 = int(ceil(3.0*NMAX/3.0));
+	dg_operator_coarse_grid_stage_2.assemble_matrix_scalar_coarse_grid(hyperbolicConst, NMAX_coarse_grid_stage_2);
+
+	std::cout << "NMAX stage 1: " << NMAX_coarse_grid_stage_1 << std::endl;
+	std::cout << "NMAX stage 2: " << NMAX_coarse_grid_stage_2 << std::endl;
 
 	RK2Midpoint odesolver(dg_operator, dt);
+	// RK3HeunLinear odesolver(dg_operator, dt);
 	odesolver.init();
 
 	std::cout << "--- evolution started ---" << std::endl;
@@ -172,17 +179,20 @@ int main(int argc, char *argv[])
 	{	
 		odesolver.init();
 		
-		// odesolver.step_rk();
-
 		// stage 1
 		odesolver.set_rhs_zero();
-		odesolver.add_rhs_matrix(dg_operator_coarse_grid);
+		odesolver.add_rhs_matrix(dg_operator_coarse_grid_stage_1);
 		odesolver.step_stage(0);
 
 		// stage 2
 		odesolver.set_rhs_zero();
 		odesolver.add_rhs_matrix(dg_operator);
 		odesolver.step_stage(1);
+
+		// // stage 3
+		// odesolver.set_rhs_zero();
+		// odesolver.add_rhs_matrix(dg_operator);
+		// odesolver.step_stage(2);
 
 		odesolver.final();
 
