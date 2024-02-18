@@ -458,6 +458,22 @@ void DGAdapt::damping_leaf(const double damp_coef)
 	}
 }
 
+void DGAdapt::filter(const double damp_coef, const double cfl, const double dx, const int filter_start_level)
+{
+	// check dimension is 1
+	assert(this->DIM == 1);
+
+	const double coefficient = damp_coef * pow(2.0 * M_PI, 2.0) * pow(cfl * dx, 2.0);
+
+	for (auto & iter : this->dg)
+	{	
+		if (iter.second.level[0] >= filter_start_level)
+		{
+			iter.second.ucoe_alpt[0] *= 1.0 - coefficient * pow(2.0, 2 * iter.second.level[0] - 3.0);
+		}
+	}
+}
+
 // NOT TESTED
 void DGAdapt::refine(const int max_mesh, const std::vector<int> dim)
 {

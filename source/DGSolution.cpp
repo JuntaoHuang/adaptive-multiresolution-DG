@@ -930,6 +930,20 @@ void DGSolution::print_order_all_basis_in_dg()
 	}
 }
 
+std::vector<double> DGSolution::get_L2_norm() const
+{	
+	std::vector<double> l2_norm(VEC_NUM, 0.);
+	for (auto const & iter : dg)
+	{
+		for (size_t i = 0; i < VEC_NUM; i++)
+		{
+			std::vector<double> l2_norm_element = iter.second.get_L2_norm_element();
+			
+			l2_norm[i] += l2_norm_element[i];
+		}
+	}
+	return l2_norm;
+}
 
 std::vector<int> DGSolution::max_mesh_level_vec() const
 {

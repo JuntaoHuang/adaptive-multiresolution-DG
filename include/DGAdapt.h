@@ -70,6 +70,9 @@ public:
 	// add damping for the leaf elements
 	void damping_leaf(const double damp_coef);
 
+	// filter coefficients of DG solution from a given level
+	void filter(const double damp_coef, const double cfl, const double dx, const int filter_start_level);
+
 	// refine to some max mesh level in given dimension
 	// NOT TESTED
 	void refine(const int max_mesh, const std::vector<int> dim);

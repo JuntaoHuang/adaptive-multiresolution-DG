@@ -225,6 +225,9 @@ public:
 	 */
 	double val_Her(const std::vector<double> & x, const int ii, const int dd, const AllBasis<HermBasis> & all_bas_Her) const;
 	
+	// calculate L2 norm of solution in this element
+	std::vector<double> get_L2_norm_element() const;
+	
 	// ------------------------------------------------------------------------------------------------------------------------
 
 	static int PMAX_alpt;	// max polynomial degree for Alpert's basis functions

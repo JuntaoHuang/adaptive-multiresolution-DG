@@ -399,3 +399,16 @@ std::vector<int> Element::index_to_order_elem(const std::vector<int> & level, co
 	}
 	return index;
 }
+
+std::vector<double> Element::get_L2_norm_element() const
+{
+	std::vector<double> l2_norm(VEC_NUM, 0.);
+	for (size_t num_vec = 0; num_vec < VEC_NUM; num_vec++)
+	{
+		for (size_t i = 0; i < size_alpt(); i++)
+		{
+			l2_norm[num_vec] += pow(ucoe_alpt[num_vec].at(order_local_alpt[i]), 2);
+		}
+	}
+	return l2_norm;
+}

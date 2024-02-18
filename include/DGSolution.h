@@ -129,6 +129,9 @@ public:
 	int size_basis_intp() const;	///< size of dg map * (m+1)^d where k is polynomial degree in interpolation basis
 	int get_dof() const;			///< dof is defined as size_basis_alpt() * (size of ind_var_vec)
 	void print_rhs() const;
+	
+	// calculate L2 norm of numerical solutions
+	std::vector<double> get_L2_norm() const;
 
 	/**
 	 * @brief copy Element::ucoe_alpt in dg_E to Element::ucoe_alpt in dg_f
