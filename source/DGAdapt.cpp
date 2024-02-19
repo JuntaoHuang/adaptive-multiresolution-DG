@@ -469,7 +469,8 @@ void DGAdapt::filter(const double damp_coef, const double cfl, const double dx, 
 	{	
 		if (iter.second.level[0] >= filter_start_level)
 		{
-			iter.second.ucoe_alpt[0] *= 1.0 - coefficient * pow(2.0, 2 * iter.second.level[0] - 3.0);
+			// iter.second.ucoe_alpt[0] *= 1.0 - coefficient * pow(2.0, 2 * iter.second.level[0] - 3.0);
+			iter.second.ucoe_alpt[0] *= exp(- coefficient * pow(2.0, 2 * iter.second.level[0] - 3.0));
 		}
 	}
 }

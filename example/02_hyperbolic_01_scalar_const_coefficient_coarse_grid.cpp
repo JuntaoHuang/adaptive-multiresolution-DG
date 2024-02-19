@@ -216,7 +216,7 @@ int main(int argc, char *argv[])
 		curr_time += dt;
 		
 		// record code running time
-		if (num_time_step % 1000 == 0)
+		if (num_time_step % 10000 == 0)
 		{		
 			// compute L2 norm of numerical solution
 			std::vector<double> solu_l2_norm = dg_solu.get_L2_norm();
@@ -277,7 +277,11 @@ int main(int argc, char *argv[])
 	// --------------------------------------------------------------------------------------------
 	// --- Part 5: output results into file ---
 	
-	// output error 
+	// output error
+	if (std::isnan(err_l2) || std::isinf(err_l2))
+	{
+		is_stable = 0; err_l2 = -1;
+	}
 	std::string output_file_name = "result_dim_" + std::to_string(DIM) + "_N1_" + std::to_string(NMAX_coarse_grid_stage_1) + "_N2_" + std::to_string(NMAX_coarse_grid_stage_2) + "_cfl_" + std::to_string(cfl) + "_filter_" + std::to_string(filter_coef) + ".txt";
 	std::ofstream output_file(output_file_name);
 	output_file << "NMAX in stage 1: " << std::endl << NMAX_coarse_grid_stage_1 << std::endl
