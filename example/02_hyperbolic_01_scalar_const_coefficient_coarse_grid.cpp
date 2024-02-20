@@ -221,7 +221,7 @@ int main(int argc, char *argv[])
 			// compute L2 norm of numerical solution
 			std::vector<double> solu_l2_norm = dg_solu.get_L2_norm();
 
-			if (solu_l2_norm[0] > 100.0 * solu_l2_norm_init[0])
+			if ((solu_l2_norm[0] > 100.0 * solu_l2_norm_init[0]) || std::isnan(solu_l2_norm[0]) || std::isinf(solu_l2_norm[0]))
 			{ 
 				std::cout << "L2 norm is too large: " << solu_l2_norm[0] << std::endl;
 				is_stable = 0;
