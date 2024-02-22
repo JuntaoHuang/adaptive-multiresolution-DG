@@ -282,7 +282,14 @@ int main(int argc, char *argv[])
 	{
 		is_stable = 0; err_l2 = -1;
 	}
-	std::string output_file_name = "result_dim_" + std::to_string(DIM) + "_N1_" + std::to_string(NMAX_coarse_grid_stage_1) + "_N2_" + std::to_string(NMAX_coarse_grid_stage_2) + "_cfl_" + std::to_string(cfl) + "_filter_" + std::to_string(filter_coef) + ".txt";
+	std::string output_file_name = 
+		"result_dim_" + std::to_string(DIM) 
+		+ "_N1_" + std::to_string(NMAX_coarse_grid_stage_1)
+		+ "_N2_" + std::to_string(NMAX_coarse_grid_stage_2)
+		+ "_cfl_" + std::to_string(cfl)		
+		+ "_filter_" + std::to_string(filter_coef)
+		+ "_tf_" + std::to_string(final_time)
+		+ ".txt";
 	std::ofstream output_file(output_file_name);
 	output_file << "NMAX in stage 1: " << std::endl << NMAX_coarse_grid_stage_1 << std::endl
 				<< "NMAX in stage 2: " << std::endl << NMAX_coarse_grid_stage_2 << std::endl
