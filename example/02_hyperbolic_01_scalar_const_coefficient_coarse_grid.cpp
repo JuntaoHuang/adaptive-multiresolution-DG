@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
 	// --------------------------------------------------------------------------------------------
 	// --- Part 1: preliminary part	---
 	// static variables
-	const int DIM = 1;
+	const int DIM = 2;
 
 	AlptBasis::PMAX = 1;
 
@@ -211,7 +211,7 @@ int main(int argc, char *argv[])
 
 		odesolver.final();
 
-		dg_solu.filter(filter_coef, cfl, dx, NMAX_coarse_grid_stage_1 + 1);
+		dg_solu.filter(filter_coef, hyperbolicConst, dt, NMAX_coarse_grid_stage_1 + 1);
 
 		curr_time += dt;
 		

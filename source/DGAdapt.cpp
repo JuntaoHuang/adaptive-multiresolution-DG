@@ -458,19 +458,26 @@ void DGAdapt::damping_leaf(const double damp_coef)
 	}
 }
 
-void DGAdapt::filter(const double damp_coef, const double cfl, const double dx, const int filter_start_level)
+void DGAdapt::filter(const double damp_coef, const std::vector<double> & wave_speed, const double dt, const int filter_start_level_sum)
 {
-	// check dimension is 1
-	assert(this->DIM == 1);
-
-	const double coefficient = damp_coef * pow(2.0 * M_PI, 2.0) * pow(cfl * dx, 2.0);
-
+	const double coefficient = damp_coef * (dt * dt / 2.0) * (M_PI * M_PI);
+	
 	for (auto & iter : this->dg)
 	{	
-		if (iter.second.level[0] >= filter_start_level)
+		// compute the sum of mesh level
+		const int level_sum = std::accumulate(iter.second.level.begin(), iter.second.level.end(), 0);
+
+		if (level_sum >= filter_start_level_sum)
 		{
-			// iter.second.ucoe_alpt[0] *= 1.0 - coefficient * pow(2.0, 2 * iter.second.level[0] - 3.0);
-			iter.second.ucoe_alpt[0] *= exp(- coefficient * pow(2.0, 2 * iter.second.level[0] - 3.0));
+			// compute c_1 * 2^(l_1) + c_2 * 2^(l_2) + ... + c_d * 2^(l_d)
+			// where c_i is the wave speed in i-th dimension
+			// and l_i is the mesh level in i-th dimension
+			double index_sum = 0.0;
+			for (int d = 0; d < DIM; d++)
+			{
+				index_sum += wave_speed[d] * pow(2.0, iter.second.level[d]);
+			}
+			iter.second.ucoe_alpt[0] *= exp(- coefficient * index_sum * index_sum);
 		}
 	}
 }

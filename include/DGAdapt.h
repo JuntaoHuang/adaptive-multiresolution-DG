@@ -71,7 +71,7 @@ public:
 	void damping_leaf(const double damp_coef);
 
 	// filter coefficients of DG solution from a given level
-	void filter(const double damp_coef, const double cfl, const double dx, const int filter_start_level);
+	void filter(const double damp_coef, const std::vector<double> & wave_speed, const double dt, const int filter_start_level_sum);
 
 	// refine to some max mesh level in given dimension
 	// NOT TESTED
