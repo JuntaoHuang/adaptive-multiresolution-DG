@@ -22,127 +22,6 @@
 #include "FastMultiplyLU.h"
 #include "Timer.h"
 
-// numerical result for full grid:
-// for i in {2..7}; do ./07_vlasov_ampere -s 0 -NM $i -N0 $i -p 1000; done
-// 
-// P2 + LagrBasis::msh_case = 1
-// L1, L2 and Linf error at final time:
-// 0.00977663, 0.0145172, 0.0321203
-// 0.00147612, 0.00303159, 0.0146294
-// 0.000166637, 0.00064198, 0.00661077
-// 2.08798e-05, 8.31085e-05, 0.00104469
-// 3.65917e-06, 1.51696e-05, 0.000181649
-// 6.90303e-07, 2.99507e-06, 3.38135e-05
-// order
-// 2.7275    2.2596    1.1346
-// 3.1470    2.2395    1.1460
-// 2.9965    2.9495    2.6617
-// 2.5125    2.4538    2.5238
-// 2.4062    2.3405    2.4255
-// P2 + LagrBasis::msh_case = 2
-// L1, L2 and Linf error at final time:
-// 0.00511512, 0.007072, 0.0152497
-// 0.00142072, 0.00270807, 0.0126668
-// 0.000163363, 0.000623661, 0.00641348
-// 2.02479e-05, 8.01085e-05, 0.00100447
-// 3.6186e-06, 1.49575e-05, 0.000178568
-// order
-// 1.8481    1.3849    0.2677
-// 3.1205    2.1184    0.9819
-// 3.0122    2.9607    2.6747
-// 2.4843    2.4211    2.4919
-
-// numerical result for sparse grid:
-// for i in {5..10}; do ./07_vlasov_ampere -s 1 -NM $i -N0 $i -p 1000; done
-// 
-// 0.00196079, 0.00414682, 0.0412254
-// 0.000458176, 0.000981532, 0.00976287
-// 5.71906e-05, 0.000135878, 0.00151081
-// 1.02366e-05, 2.5748e-05, 0.000585272
-// 1.47486e-06, 4.05604e-06, 0.000116428
-// 2.72721e-07, 7.92076e-07, 1.81119e-05
-// order
-// 2.0975    2.0789    2.0782
-// 3.0021    2.8527    2.6920
-// 2.4820    2.3998    1.3681
-// 2.7951    2.6663    2.3297
-// 2.4351    2.3564    2.6844
-
-// deformational flow (full grid)
-// 0.00707721, 0.0097736, 0.0233013
-// 0.000995681, 0.0022954, 0.011081
-// 0.000122556, 0.000292421, 0.00166943
-// 1.70688e-05, 4.24906e-05, 0.000316131
-// 2.63512e-06, 6.84403e-06, 9.68338e-05
-// order
-// 2.8294    2.0901    1.0723
-// 3.0222    2.9726    2.7307
-// 2.8440    2.7828    2.4008
-// 2.6954    2.6342    1.7069
-// sparse grid
-// LagrBasis::msh_case = 1
-// 80.0892, 113.378, 312.923
-// 1.91581e+07, 2.6025e+07, 7.58415e+07
-// 8.37956e+23, 1.42582e+24, 6.74819e+24
-// 3.34031e+61, 7.23456e+61, 5.12755e+62
-// 8.9904e+140, 2.30897e+141, 2.25564e+142
-// LagrBasis::msh_case = 2
-// 0.0362431, 0.0511725, 0.11858
-// 0.0532136, 0.0906722, 0.383674
-// 0.0531663, 0.100788, 0.597923
-// 0.798468, 2.40259, 18.6084
-// 384969, 1.29615e+06, 1.19112e+07
-// LagrBasis::msh_case = 3
-// 0.0146614, 0.0173568, 0.0328734
-// 0.0102148, 0.01536, 0.0544565
-// 0.0044042, 0.00740571, 0.0466604
-// 0.00159391, 0.0028898, 0.0176127
-// 0.000400531, 0.000811244, 0.00503487
-// 7.19094e-05, 0.000170648, 0.00158929
-// 1.09455e-05, 2.61835e-05, 0.000276302
-// order
-// 0.5214    0.1763   -0.7282
-// 1.2137    1.0525    0.2229
-// 1.4663    1.3577    1.4056
-// 1.9926    1.8328    1.8066
-// 2.4777    2.2491    1.6636
-// 2.7158    2.7043    2.5241
-// 
-// solid body rotation with Gaussian initial condition
-// P2 -tf 1e-1
-// 0.00398266, 0.0146764, 0.124115
-// 0.00156838, 0.00552492, 0.0618771
-// 0.000214566, 0.000735708, 0.00843015
-// 3.82992e-05, 0.000132225, 0.00160553
-// 7.42859e-06, 2.64875e-05, 0.000328684
-// 1.3445    1.4095    1.0042
-// 2.8698    2.9087    2.8758
-// 2.4860    2.4761    2.3925
-// 2.3662    2.3196    2.2883
-// P1 -tf 0.1 
-// 0.0217526, 0.0408102, 0.240252
-// 0.00433879, 0.0106852, 0.152551
-// 0.00144631, 0.00549969, 0.0984901
-// 0.00030683, 0.00119258, 0.0245426
-// 7.25884e-05, 0.000285692, 0.00600302
-// 1.78535e-05, 7.06626e-05, 0.00149177
-// 2.3258    1.9333    0.6553
-// 1.5849    0.9582    0.6312
-// 2.2369    2.2053    2.0047
-// 2.0796    2.0616    2.0315
-// 2.0235    2.0154    2.0087
-// P3 -tf 0.1
-// 0.00500944, 0.0113895, 0.0531066
-// 0.000141088, 0.000389971, 0.00261455
-// 1.96638e-05, 7.16486e-05, 0.000559506
-// 1.02803e-06, 3.83707e-06, 4.73288e-05
-// 6.00829e-08, 2.23979e-07, 3.14258e-06
-// 3.67488e-09, 1.36471e-08, 1.98939e-07
-// 5.1500    4.8682    4.3443
-// 2.8430    2.4444    2.2243
-// 4.2576    4.2229    3.5634
-// 4.0968    4.0986    3.9127
-// 4.0312    4.0367    3.9816
 int main(int argc, char *argv[])
 {
 	// constant variable
@@ -246,38 +125,11 @@ int main(int argc, char *argv[])
 
 	// initialization of DG solution (distribution function f)
 	DGAdapt dg_f(sparse, N_init, NMAX, all_bas_alpt, all_bas_lagr, all_bas_herm, hash, refine_eps, coarsen_eta, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp);
-	// DGAdaptIntp dg_f(sparse, N_init, NMAX, all_bas_alpt, all_bas_lagr, all_bas_herm, hash, refine_eps, coarsen_eta, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp, oper_matx_lagr_lagr, oper_matx_herm_herm);
-	
+		
 	// // project initial function into numerical solution
 	auto init_func_1 = [](double x, int d) { return exp(- (x - 0.5) * (x - 0.5) * 100.); };
-	// auto init_func_2 = [](double x, int d) { return (d==0) ? (-sin(2.*Const::PI*x)) : (sin(2.*Const::PI*x)); };
 	std::vector<std::function<double(double, int)>> init_func{init_func_1};	
 	dg_f.init_separable_scalar_sum(init_func);
-	// auto init_func = [=](std::vector<double> x, int i)
-	// {
-	// 	// // example 4.2 (solid body rotation) in Guo and Cheng. "A sparse grid discontinuous Galerkin method for high-dimensional transport equations and its application to kinetic simulations." SISC (2016)
-	// 	// const std::vector<double> xc{0.75, 0.5};
-	// 	// const double b = 0.23;
-
-	// 	// example 4.3 (deformational flow)
-	// 	const std::vector<double> xc{0.65, 0.5};
-	// 	const double b = 0.35;
-				
-	// 	double r_sqr = 0.;
-	// 	for (int d = 0; d < DIM; d++) { r_sqr += pow(x[d] - xc[d], 2.); };
-	// 	double r = pow(r_sqr, 0.5);
-	// 	if (r <= b) { return pow(b, DIM-1) * pow(cos(Const::PI*r/(2.*b)), 6.); }
-	// 	else { return 0.; }
-	// };
-	// dg_f.init_adaptive_intp(init_func);
-
-	// // initialization of electric field E
-	// const int auxiliary_dim = 1;
-	// DGAdapt dg_electric(sparse, N_init, NMAX, auxiliary_dim, all_bas_alpt, all_bas_lagr, all_bas_herm, hash, refine_eps, coarsen_eta, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp);
-
-	// // E(x,y) = cos(2*pi*x)
-	// auto init_func_electric = [](double x, int d) { return (d==0) ? (cos(2.*Const::PI*x)) : (1.); };
-	// dg_electric.init_separable_scalar(init_func_electric);
 	
     // output
 	IO inout(dg_f);
@@ -337,73 +189,25 @@ int main(int argc, char *argv[])
         odeSolver.init();		
 
         for ( int stage = 0; stage < odeSolver.num_stage; ++stage )
-        {			
-
-// Timer record_time;
-            
-            // f = f(x, v, t) in 1D1V
-            // interpolation for f * v
-            // f_t + v * f_x + E * f_v = 0
-			// test: f_t + sin(2*pi*v) * f_x + cos(2*pi*x) * f_v = 0
-            // auto coe_func = [&](std::vector<double> x, int d) -> double 
-            // {
-            //     if (d==0) 
-			// 	{ 
-			// 		return sin(2*Const::PI*(x[1])); 
-			// 	}
-            //     else 
-			// 	{
-			// 		// return cos(2*Const::PI*(x[0]));
-			// 		std::vector<int> zero_derivative(DIM, 0);
-			// 		return dg_electric.val(x, zero_derivative)[0];					
-			// 	}
-            // };
+        {
 			// solid body rotation: f_t + (-x2 + 0.5) * f_x1 + (x1 - 0.5) * f_x2 = 0
             auto coe_func = [&](std::vector<double> x, int d) -> double 
             {
                 if (d==0) { return -x[1] + 0.5; }
                 else { return x[0] - 0.5; }
             };
-			// // deformational flow: f_t + ( sin(pi*x1)^2 * sin(2*pi*x2) * g(t) ) * f_x1 + ( -sin(pi*x2)^2 * sin(2*pi*x1) * g(t) ) * f_x2 = 0
-            // double gt_time = curr_time;
-            // if (stage == 1) { gt_time += dt; }
-            // else if (stage == 2) { gt_time += dt/2.; }
-			// double gt = cos(Const::PI*gt_time/final_time);
-            // auto coe_func = [&](std::vector<double> x, int d) -> double 
-            // {				
-            //     if (d==0) { return pow(sin(Const::PI*x[0]), 2.) * sin(2*Const::PI*x[1]) * gt; }
-            //     else { return - pow(sin(Const::PI*x[1]), 2.) * sin(2*Const::PI*x[0]) * gt; }
-            // };
             interp.var_coeff_u_Lagr_fast(coe_func, is_intp, fast_lagr_intp);
-// record_time.time("interpolation");
-// record_time.reset();
 
             // calculate rhs and update Element::ucoe_alpt
             dg_f.set_rhs_zero();
 
             fast_rhs_lagr.rhs_vol_scalar();
             fast_rhs_lagr.rhs_flx_intp_scalar();
-// record_time.time("bilinear form for nonlinear term");
-// record_time.reset();
 
             // add to rhs in odeSolver
             odeSolver.set_rhs_zero();
             odeSolver.add_rhs_to_eigenvec();
             odeSolver.add_rhs_matrix(linear);
-// record_time.time("bilinear form for linear term");
-// record_time.reset();
-
-            // // source term
-            // double source_time = curr_time;
-            // if (stage == 1) { source_time += dt; }
-            // else if (stage == 2) { source_time += dt/2.; }
-            // // compute projection of source term f(x, y, t) with separable formulation
-            // // auto source_func = [&](std::vector<double> x, int i)->double { return 2*Const::PI*(x[1]+1.)*cos(2*Const::PI*(source_time+x[0]+x[1])); };
-			// auto source_func = [&](std::vector<double> x, int i)->double { return (sin(2*Const::PI*x[1]) + cos(2*Const::PI*x[0]) + 1.) * (-2*Const::PI) * sin(2*Const::PI*(source_time+x[0]+x[1])); };
-            // Domain2DIntegral source_operator(dg_f, all_bas_alpt, source_func);
-            // source_operator.assemble_vector();
-            // odeSolver.add_rhs_vector(source_operator.vec_b);
-// record_time.time("source term");
             
             odeSolver.step_stage(stage);
             odeSolver.final();
@@ -431,14 +235,6 @@ int main(int argc, char *argv[])
 
 	auto final_func = [&](std::vector<double> x) -> double 
 	{	
-		// test: f_t + f_x + f_v = 0
-		// return sin(2*Const::PI*(x[0] + 2 * x[1] - 3 * final_time));
-		// return cos(2*Const::PI*(x[0] + x[1] - 2 * final_time));
-		// return cos(2*Const::PI*(x[0] + x[1] + final_time));
-		
-		// // solid body rotation
-		// return init_func(x, 0);
-
 		return exp(- (x[0] - 0.5) * (x[0] - 0.5) * 100. - (x[1] - 0.5) * (x[1] - 0.5) * 100.);
 	};
 
