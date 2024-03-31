@@ -61,6 +61,8 @@ class LagrInterpolation:
 		// the first index is # of unknown variable, the second one is # of dimension
 		void var_coeff_u_Lagr_fast(std::function<double(std::vector<double>, int)> coefficient_func, 
 		                           std::vector< std::vector<bool> > is_intp, FastLagrIntp & fastLagr);
+								   		
+		void var_coeff_u_Lagr_fast_coarse_grid(std::function<double(std::vector<double>, int)> coe_func, std::vector< std::vector<bool> > is_intp, FastLagrIntp & fastLagr, const int mesh_nmax);
 
 		// this function will compute interpolation for 1D1V Vlasov equation, e.g. f_t + v * f_x + E * f_v = 0
 		// compute interpolation basis of v * f in the first dimension and E * f in the second dimension

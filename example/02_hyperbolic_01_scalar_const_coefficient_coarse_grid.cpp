@@ -143,6 +143,13 @@ int main(int argc, char *argv[])
 
 	dg_solu.init_adaptive_intp(init_non_separable_func);
 
+	// // project initial function into numerical solution
+	// // f(x,y) = cos(2*pi*(x+y)) = cos(2*pi*x) * cos(2*pi*y) - sin(2*pi*x) * sin(2*pi*y)
+	// auto init_func_1 = [](double x, int d) { return (d==0) ? (cos(2.*Const::PI*x)) : (cos(2.*Const::PI*x)); };
+	// auto init_func_2 = [](double x, int d) { return (d==0) ? (-sin(2.*Const::PI*x)) : (sin(2.*Const::PI*x)); };
+	// std::vector<std::function<double(double, int)>> init_func{init_func_1, init_func_2};	
+	// dg_solu.init_separable_scalar_sum(init_func);
+
 	// --- End of Part 2 ---
 	// --------------------------------------------------------------------------------------------
 
@@ -175,8 +182,8 @@ int main(int argc, char *argv[])
 	HyperbolicAlpt dg_operator_coarse_grid_stage_2(dg_solu, oper_matx);
 	dg_operator_coarse_grid_stage_2.assemble_matrix_scalar_coarse_grid(hyperbolicConst, NMAX_coarse_grid_stage_2);
 
-	std::cout << "NMAX stage 1: " << NMAX_coarse_grid_stage_1 << std::endl;
-	std::cout << "NMAX stage 2: " << NMAX_coarse_grid_stage_2 << std::endl;
+	// std::cout << "NMAX stage 1: " << NMAX_coarse_grid_stage_1 << std::endl;
+	// std::cout << "NMAX stage 2: " << NMAX_coarse_grid_stage_2 << std::endl;
 
 	RK2Midpoint odesolver(dg_operator, dt);
 	// RK3HeunLinear odesolver(dg_operator, dt);
@@ -237,7 +244,7 @@ int main(int argc, char *argv[])
 			record_time.time("elasped time in evolution");
 		}
 	}	
-	odesolver.final();
+	// odesolver.final();
 	
 	std::cout << "--- evolution finished ---" << std::endl;
 	// --- End of Part 3 ---
@@ -270,6 +277,16 @@ int main(int argc, char *argv[])
 	double err_l2 = dg_solu_ext.get_L2_error_split_adaptive_intp_scalar(dg_solu);		
 	std::cout << "L2 error at final time: " << err_l2 << std::endl;	
 	record_time.time("elasped time in computing error");
+
+	// auto final_function = [&](std::vector<double> x) -> double 
+	// {	
+	// 	double sum_x = 0.;
+	// 	for (int d = 0; d < DIM; d++) { sum_x += x[d]; };
+	// 	return cos(2*Const::PI*(sum_x - DIM*final_time));
+	// };
+	// std::vector<double> err = dg_solu.get_error_no_separable_scalar(final_function, 4);
+	// std::cout << std::scientific << std::setprecision(10);
+	// std::cout << "L1, L2 and Linf error at final time: " << err[0] << ", " << err[1] << ", " << err[2] << std::endl;
 	
 	// --- End of Part 4 ---
 	// --------------------------------------------------------------------------------------------

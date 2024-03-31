@@ -151,6 +151,14 @@ private:
 };
 
 // Midpoint method
+// solve du/dt = f(u)
+// 
+// u^(n+1) = u^n + dt * f( u^n + 1/2 * dt * f(u^n) )
+// 
+// it can also be reformulated as two stages:
+// 
+// u^(1) = u^n + 1/2 * dt * f(u^n)
+// u^(n+1) = u^n + dt * f(u^(1))
 class RK2Midpoint:
 	public ExplicitRK
 {

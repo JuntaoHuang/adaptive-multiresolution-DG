@@ -4212,6 +4212,17 @@ void LagrInterpolation::var_coeff_u_Lagr_fast(std::function<double(std::vector<d
 	eval_fp_to_coe_D_Lag(is_intp);
 }
 
+void LagrInterpolation::var_coeff_u_Lagr_fast_coarse_grid(std::function<double(std::vector<double>, int)> coe_func, std::vector< std::vector<bool> > is_intp, FastLagrIntp & fastLagr, const int mesh_nmax)
+{
+	assert(is_intp.size() == VEC_NUM);
+	for (size_t num = 0; num < VEC_NUM; num++) { assert(is_intp[num].size() == DIM); }
+
+	fastLagr.eval_up_Lagr_coarse_grid(mesh_nmax);
+
+	eval_coe_u_Lag(coe_func, is_intp);
+
+	eval_fp_to_coe_D_Lag(is_intp);
+}
 
 void LagrInterpolation::interp_Vlasov_1D1V(DGSolution & E, FastLagrIntp & fastLagr_f, FastLagrIntp & fastLagr_E)
 {		

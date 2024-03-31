@@ -768,6 +768,18 @@ void HyperbolicAlpt::assemble_matrix_flx_scalar(const int dim, const int sign, c
 	}
 }
 
+void HyperbolicAlpt::assemble_matrix_flx_scalar_coarse_grid(const int dim, const int sign, const int mesh_nmax, const double coefficient)
+{
+	if (sign == -1)
+	{
+		assemble_matrix_alpt_coarse_grid(coefficient, dim, oper_matx_alpt_ptr->ulft_vjp, oper_matx_alpt_ptr->u_v, "flx", mesh_nmax);
+	}
+	else if (sign == 1)
+	{
+		assemble_matrix_alpt_coarse_grid(coefficient, dim, oper_matx_alpt_ptr->urgt_vjp, oper_matx_alpt_ptr->u_v, "flx", mesh_nmax);
+	}
+}
+
 HJOutflowAlpt::HJOutflowAlpt(DGSolution & dgsolution, OperatorMatrix1D<AlptBasis, AlptBasis> & oper_matx_alpt_period, OperatorMatrix1D<AlptBasis, AlptBasis> & oper_matx_alpt_inside, const int n):
 	HyperbolicAlpt(dgsolution, oper_matx_alpt_period, n), oper_matx_alpt_inside_ptr(&oper_matx_alpt_inside), mat1D_flx_lft(2, oper_matx_alpt_ptr->size), mat1D_flx_rgt(2, oper_matx_alpt_ptr->size)
 {

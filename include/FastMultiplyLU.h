@@ -32,6 +32,10 @@ protected:
                     const int pmax_trans_from, const int pmax_trans_to, const double coefficient = 1.0, 
                     const int vec_index_trans_from = 0, const int vec_index_trans_to = 0);
 
+    void transform_1D_coarse_grid(const VecMultiD<double> & mat_1D, const std::string LU, const std::string operator_type, const int dim_transform, 
+                    const int pmax_trans_from, const int pmax_trans_to, const int mesh_nmax, const double coefficient = 1.0, 
+                    const int vec_index_trans_from = 0, const int vec_index_trans_to = 0);
+
     // resize ucoe_trans_from and ucoe_trans_to in each element before do transformation
     // with given size of vector
     void resize_ucoe_transfrom(const std::vector<int> & size_trans_from, const int vec_index = 0);
@@ -110,11 +114,17 @@ protected:
      * @brief transform Element::ucoe_alpt to Element::up_intp in any dimension
      */
     void transform_ucoealpt_to_upintp(const std::vector<const VecMultiD<double>*> & alpt_basis_pt_1D);
+
+    void transform_ucoealpt_to_upintp_coarse_grid(const std::vector<const VecMultiD<double>*> & alpt_basis_pt_1D, const int mesh_nmax);
+
     // only transform a given unknown variable component
     void transform_ucoealpt_to_upintp(const std::vector<const VecMultiD<double>*> & alpt_basis_pt_1D, const int vec_index);
 
     // overload for matrix are the same
     void transform_ucoealpt_to_upintp(const VecMultiD<double> & alpt_basis_pt_1D);
+
+    void transform_ucoealpt_to_upintp_coarse_grid(const VecMultiD<double> & alpt_basis_pt_1D, const int mesh_nmax);
+
     // only transform a given unknown variable component
     void transform_ucoealpt_to_upintp(const VecMultiD<double> & alpt_basis_pt_1D, const int vec_index);
 
@@ -144,6 +154,9 @@ private:
      * @param is_last_step      if true, denote the last step
      */
     void transform_1D_from_ucoealpt_to_upintp(const VecMultiD<double> & mat_1D, const std::string LU, const std::vector<int> & size_trans_from, const std::vector<int> & size_trans_to, const int dim, const bool is_first_step, const bool is_last_step);
+
+    void transform_1D_from_ucoealpt_to_upintp_coarse_grid(const VecMultiD<double> & mat_1D, const std::string LU, const std::vector<int> & size_trans_from, const std::vector<int> & size_trans_to, const int dim, const bool is_first_step, const bool is_last_step, const int mesh_nmax);
+
     // only transform a given unknown variable component    
     void transform_1D_from_ucoealpt_to_upintp(const VecMultiD<double> & mat_1D, const std::string LU, const std::vector<int> & size_trans_from, const std::vector<int> & size_trans_to, const int dim, const bool is_first_step, const bool is_last_step, const int vec_index);
     
@@ -161,6 +174,9 @@ private:
      *          and last do transformation in z direction with upper part of mat_1D_z
      */
     void transform_multiD_partial_sum(const std::vector<const VecMultiD<double>*> & mat_1D_array, const std::vector<int> & dim_order_transform, const std::vector<std::string> & LU);
+    
+    void transform_multiD_partial_sum_coarse_grid(const std::vector<const VecMultiD<double>*> & mat_1D_array, const std::vector<int> & dim_order_transform, const std::vector<std::string> & LU_order_transform, const int mesh_nmax);
+
     // only transform a given unknown variable component
     void transform_multiD_partial_sum(const std::vector<const VecMultiD<double>*> & mat_1D_array, const std::vector<int> & dim_order_transform, const std::vector<std::string> & LU, const int vec_index);
 };
@@ -181,6 +197,8 @@ public:
 
     // transform Element::ucoe_alpt to Element::up_intp
     void eval_up_Lagr();
+
+    void eval_up_Lagr_coarse_grid(const int mesh_nmax);
 
     // transform Element::ucoe_alpt[vec_index] to Element::up_intp[vec_index]
     // i.e. only for a given unknown variable component
@@ -394,6 +412,8 @@ protected:
     //      this function will ADD (not copy) computational result to Element::rhs
     void rhs_2D(const VecMultiD<double> & mat_x, const VecMultiD<double> & mat_y, const std::string operator_type_x, const std::string operator_type_y, const int dim_interp, const double coefficient = 1.0);
 
+    void rhs_2D_coarse_grid(const VecMultiD<double> & mat_x, const VecMultiD<double> & mat_y, const std::string operator_type_x, const std::string operator_type_y, const int dim_interp, const int mesh_nmax, const double coefficient = 1.0);
+
 private:
 
     void transform_1D_from_fucoe_to_rhs(const VecMultiD<double> & mat_1D, const std::string & LU, const std::string & operator_type, 
@@ -434,8 +454,12 @@ private:
     // L_x * mat_y
     void rhs_2D_sum_1st(const VecMultiD<double> & mat_x, const VecMultiD<double> & mat_y, const std::string operator_type_x, const std::string operator_type_y, const int dim_interp, const double coefficient = 1.0);
 
+    void rhs_2D_sum_1st_coarse_grid(const VecMultiD<double> & mat_x, const VecMultiD<double> & mat_y, const std::string operator_type_x, const std::string operator_type_y, const int dim_interp, const int mesh_nmax, const double coefficient = 1.0);
+
     // mat_y * U_x
     void rhs_2D_sum_2nd(const VecMultiD<double> & mat_x, const VecMultiD<double> & mat_y, const std::string operator_type_x, const std::string operator_type_y, const int dim_interp, const double coefficient = 1.0);
+
+    void rhs_2D_sum_2nd_coarse_grid(const VecMultiD<double> & mat_x, const VecMultiD<double> & mat_y, const std::string operator_type_x, const std::string operator_type_y, const int dim_interp, const int mesh_nmax, const double coefficient = 1.0);
 };
 
 
@@ -519,9 +543,13 @@ public:
     // this function will ADD (not copy) computational result to Element::rhs
     void rhs_vol_scalar();
 
+    void rhs_vol_scalar_coarse_grid(const int mesh_nmax);
+
     // calculate rhs of flux integral term involving Hermite interpolation basis
     // this function will ADD (not copy) computational result to Element::rhs
     void rhs_flx_intp_scalar();
+    
+    void rhs_flx_intp_scalar_coarse_grid(const int mesh_nmax);
 
 private:
     OperatorMatrix1D<LagrBasis, AlptBasis>* const oper_matx_lagr_ptr;

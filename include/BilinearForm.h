@@ -151,6 +151,8 @@ public:
     // sign: -1, left limit; 1, right limit
     void assemble_matrix_flx_scalar(const int dim, const int sign, const double coefficient = 1.);
 
+	void assemble_matrix_flx_scalar_coarse_grid(const int dim, const int sign, const int mesh_nmax, const double coefficient = 1.);
+
 	// flux integral of u^- * [v] or u^+ * [v]
 	// sign: -1, left limit; 1, right limit
 	// coefficient： matrix of size VEC_NUM * VEC_NUM, [i][j] means the coefficient of j-th unknown in i-th equation

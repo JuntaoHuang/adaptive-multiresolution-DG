@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
 	// static variables
 	AlptBasis::PMAX = 1;
 
-	LagrBasis::PMAX = 4;
+	LagrBasis::PMAX = 5;
 	LagrBasis::msh_case = 1;
 
 	HermBasis::PMAX = 3;
@@ -59,7 +59,6 @@ int main(int argc, char *argv[])
 	int is_init_sparse = 0;			// use full grid (0) or sparse grid (1) when initialization
 	double final_time = 1.5;
 	double cfl = 0.2;
-	int rk_order = 3;
 	std::string boundary_type = "period";	// this variable will be used in constructors of class OperatorMatrix1D
 
 	// adaptive parameter
@@ -75,10 +74,16 @@ int main(int argc, char *argv[])
 	bool is_adapt_find_ptr_intp = false;
 
 	// output info in screen every time steps
-	int output_time_interval = 10;
+	int output_time_interval = 1000;
 
 	// num of gauss points in computing error
 	int num_gauss_pt_compute_error = 1;
+
+	int NMAX_coarse_grid_stage_1 = NMAX;
+	int NMAX_coarse_grid_stage_2 = NMAX;
+
+	// filter coefficient
+	double filter_coef = 1.0;
 
 	OptionsParser args(argc, argv);
 	args.AddOption(&NMAX, "-NM", "--max-mesh-level", "Maximum mesh level");
@@ -90,6 +95,9 @@ int main(int argc, char *argv[])
 	args.AddOption(&coarsen_eta, "-c", "--coarsen-eta", "coarsen parameter eta");
 	args.AddOption(&output_time_interval, "-p", "--print-every-time-step", "every time steps output info in screen");
 	args.AddOption(&num_gauss_pt_compute_error, "-g", "--num-gauss-pt-compute-error", "number of gauss points in computing error");
+	args.AddOption(&NMAX_coarse_grid_stage_1, "-N1", "--max-mesh-stage-1", "Maximum mesh level in stage 1");
+	args.AddOption(&NMAX_coarse_grid_stage_2, "-N2", "--max-mesh-stage-2", "Maximum mesh level in stage 2");
+	args.AddOption(&filter_coef, "-filter", "--filter-coefficient", "Filter coefficient");
 
 	args.Parse();
 	if (!args.Good())
@@ -124,17 +132,29 @@ int main(int argc, char *argv[])
 	OperatorMatrix1D<LagrBasis, LagrBasis> oper_matx_lagr_lagr(all_bas_lagr, all_bas_lagr, boundary_type);
 
 	// initialization of DG solution (distribution function f)
-	DGAdapt dg_f(sparse, N_init, NMAX, all_bas_alpt, all_bas_lagr, all_bas_herm, hash, refine_eps, coarsen_eta, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp);
-		
-	// // project initial function into numerical solution
-	auto init_func_1 = [](double x, int d) { return exp(- (x - 0.5) * (x - 0.5) * 100.); };
-	std::vector<std::function<double(double, int)>> init_func{init_func_1};	
-	dg_f.init_separable_scalar_sum(init_func);
+	DGAdaptIntp dg_f(sparse, N_init, NMAX, all_bas_alpt, all_bas_lagr, all_bas_herm, hash, refine_eps, coarsen_eta, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp, oper_matx_lagr_lagr, oper_matx_herm_herm);
 	
+	// adaptive interpolation for initial function
+	// u(x,0) = cos(2 * pi * (sum_(d=1)^DIM x_d)
+	auto init_non_separable_func = [=](std::vector<double> x, int i)
+	{	
+		double sum_x = 0.;
+		for (int d = 0; d < DIM; d++) { sum_x += x[d]; };
+		return cos(2*Const::PI*sum_x);
+	};
+	dg_f.init_adaptive_intp(init_non_separable_func);
+
+	// // project initial function into numerical solution
+	// // f(x,y) = cos(2*pi*(x+y)) = cos(2*pi*x) * cos(2*pi*y) - sin(2*pi*x) * sin(2*pi*y)
+	// auto init_func_1 = [](double x, int d) { return (d==0) ? (cos(2.*Const::PI*x)) : (cos(2.*Const::PI*x)); };
+	// auto init_func_2 = [](double x, int d) { return (d==0) ? (-sin(2.*Const::PI*x)) : (sin(2.*Const::PI*x)); };
+	// std::vector<std::function<double(double, int)>> init_func{init_func_1, init_func_2};	
+	// dg_f.init_separable_scalar_sum(init_func);
+
     // output
 	IO inout(dg_f);
 
-	// ------------------------------
+	// ------------------------------	
 	HyperbolicDiffFluxLagrRHS fast_rhs_lagr(dg_f, oper_matx_lagr);		
 
 	// fast Lagrange interpolation
@@ -142,15 +162,37 @@ int main(int argc, char *argv[])
 	FastLagrIntp fast_lagr_intp(dg_f, interp_lagr.Lag_pt_Alpt_1D, interp_lagr.Lag_pt_Alpt_1D_d1);
 
 	// constant in global Lax-Friedrich flux	
-	const double lxf_alpha = 0.5;
+	const double lxf_alpha = 1.0;
 	// wave speed in x and y direction
-	const std::vector<double> wave_speed{1., 1.};
+	const std::vector<double> wave_speed{1.0, 1.0};
+
+	const int max_mesh = dg_f.max_mesh_level();
+	const double dx = 1./pow(2., max_mesh);
+	double dt = dx * cfl / DIM;
+	int total_time_step = ceil(final_time/dt) + 1;
+	dt = final_time/total_time_step;
+
+	// // linear operator
+	HyperbolicAlpt linear_stage_1(dg_f, oper_matx_alpt);
+	// x direction: u^- * [v] * alpha / 2
+	linear_stage_1.assemble_matrix_flx_scalar_coarse_grid(0, -1, NMAX_coarse_grid_stage_1, lxf_alpha/2);
+	// x direction: - u^+ * [v] * alpha / 2
+	linear_stage_1.assemble_matrix_flx_scalar_coarse_grid(0, 1, NMAX_coarse_grid_stage_1, -lxf_alpha/2);
+	// y direction: u^- * [v] * alpha / 2
+	linear_stage_1.assemble_matrix_flx_scalar_coarse_grid(1, -1, NMAX_coarse_grid_stage_1, lxf_alpha/2);
+	// y direction: - u^+ * [v] * alpha / 2
+	linear_stage_1.assemble_matrix_flx_scalar_coarse_grid(1, 1, NMAX_coarse_grid_stage_1, -lxf_alpha/2);
+
+	HyperbolicAlpt linear_stage_2(dg_f, oper_matx_alpt);
+	linear_stage_2.assemble_matrix_flx_scalar_coarse_grid(0, -1, NMAX_coarse_grid_stage_2, lxf_alpha/2);
+	linear_stage_2.assemble_matrix_flx_scalar_coarse_grid(0, 1, NMAX_coarse_grid_stage_2, -lxf_alpha/2);
+	linear_stage_2.assemble_matrix_flx_scalar_coarse_grid(1, -1, NMAX_coarse_grid_stage_2, lxf_alpha/2);
+	linear_stage_2.assemble_matrix_flx_scalar_coarse_grid(1, 1, NMAX_coarse_grid_stage_2, -lxf_alpha/2);
 
 	// begin time evolution
 	std::cout << "--- evolution started ---" << std::endl;
 	Timer record_time;
 	double curr_time = 0.;
-	int num_time_step = 0;
 
 	// Lagrange interpolation
 	LagrInterpolation interp(dg_f);
@@ -159,67 +201,78 @@ int main(int argc, char *argv[])
 	std::vector< std::vector<bool> > is_intp;
 	is_intp.push_back(std::vector<bool>(DIM, true));
 
-	while ( curr_time < final_time )
-	{			
-		// --- part 1: calculate time step dt ---	
-		const std::vector<int> & max_mesh = dg_f.max_mesh_level_vec();
-		
-		// dt = cfl/(c1/dx1 + c2/dx2 + ... + c_dim/dx_dim)
-		double sum_c_dx = 0.;	// this variable stores (c1/dx1 + c2/dx2 + ... + c_dim/dx_dim)
-		for (size_t d = 0; d < DIM; d++)
-		{
-			sum_c_dx += std::abs(wave_speed[d]) * std::pow(2., max_mesh[d]);
-		}		
-		double dt = cfl/sum_c_dx;
-		dt = std::min( dt, final_time - curr_time );
-		
-        // --- part 4: time evolution
-		// linear operator
-		HyperbolicAlpt linear(dg_f, oper_matx_alpt);
-		// x direction: u^- * [v] * alpha / 2
-		linear.assemble_matrix_flx_scalar(0, -1, lxf_alpha/2);
-		// x direction: - u^+ * [v] * alpha / 2
-		linear.assemble_matrix_flx_scalar(0, 1, -lxf_alpha/2);		
-		// y direction: u^- * [v] * alpha / 2
-		linear.assemble_matrix_flx_scalar(1, -1, lxf_alpha/2);
-		// y direction: - u^+ * [v] * alpha / 2
-		linear.assemble_matrix_flx_scalar(1, 1, -lxf_alpha/2);
+	RK2Midpoint odeSolver(linear_stage_1, dt);
 
-        RK2SSP odeSolver(linear, dt);
+	for (size_t num_time_step = 0; num_time_step < total_time_step; num_time_step++)
+	{			        
         odeSolver.init();		
 
         for ( int stage = 0; stage < odeSolver.num_stage; ++stage )
-        {
+        {			
 			// solid body rotation: f_t + (-x2 + 0.5) * f_x1 + (x1 - 0.5) * f_x2 = 0
             auto coe_func = [&](std::vector<double> x, int d) -> double 
             {
-                if (d==0) { return -x[1] + 0.5; }
-                else { return x[0] - 0.5; }
+                // if (d==0) { return -x[1] + 0.5; }
+                // else { return x[0] - 0.5; }
+				return 1.0;
             };
-            interp.var_coeff_u_Lagr_fast(coe_func, is_intp, fast_lagr_intp);
 
+			if (stage == 0)
+			{
+				interp.var_coeff_u_Lagr_fast_coarse_grid(coe_func, is_intp, fast_lagr_intp, NMAX_coarse_grid_stage_1);
+			}
+			else if (stage == 1)
+			{
+				interp.var_coeff_u_Lagr_fast_coarse_grid(coe_func, is_intp, fast_lagr_intp, NMAX_coarse_grid_stage_2);
+			}
+            
             // calculate rhs and update Element::ucoe_alpt
             dg_f.set_rhs_zero();
 
-            fast_rhs_lagr.rhs_vol_scalar();
-            fast_rhs_lagr.rhs_flx_intp_scalar();
+			if (stage == 0)
+			{
+				fast_rhs_lagr.rhs_vol_scalar_coarse_grid(NMAX_coarse_grid_stage_1);
+				fast_rhs_lagr.rhs_flx_intp_scalar_coarse_grid(NMAX_coarse_grid_stage_1);
+			}
+			else if (stage == 1)
+			{
+				fast_rhs_lagr.rhs_vol_scalar_coarse_grid(NMAX_coarse_grid_stage_2);
+				fast_rhs_lagr.rhs_flx_intp_scalar_coarse_grid(NMAX_coarse_grid_stage_2);
+			}
 
             // add to rhs in odeSolver
             odeSolver.set_rhs_zero();
             odeSolver.add_rhs_to_eigenvec();
-            odeSolver.add_rhs_matrix(linear);
+			if (stage == 0)
+			{
+				odeSolver.add_rhs_matrix(linear_stage_1);
+			}
+			else if (stage == 1)
+			{
+				odeSolver.add_rhs_matrix(linear_stage_2);
+			}
             
             odeSolver.step_stage(stage);
             odeSolver.final();
         }
 
-		// add current time and increase time steps
+		// add filter to solution for stability
+		dg_f.filter(filter_coef, wave_speed, dt, NMAX_coarse_grid_stage_1 + 1);
+
 		curr_time += dt;
-		num_time_step ++;
 		
 		// record code running time
 		if (num_time_step % output_time_interval == 0)
 		{
+			// compute L2 norm of numerical solution
+			std::vector<double> solu_l2_norm = dg_f.get_L2_norm();
+
+			if ((solu_l2_norm[0] > 100.0) || std::isnan(solu_l2_norm[0]) || std::isinf(solu_l2_norm[0]))
+			{ 
+				std::cout << "L2 norm is too LARGE: " << solu_l2_norm[0] << std::endl;
+				break;
+			}
+
 			record_time.time("running time");
 			std::cout << "num of time steps: " << num_time_step 
 					<< "; time step: " << dt 
@@ -230,19 +283,39 @@ int main(int argc, char *argv[])
 	std::cout << "--- evolution finished ---" << std::endl;
 	
 	record_time.time("running time");
-	std::cout << "num of time steps: " << num_time_step
-			<< "; num of basis: " << dg_f.size_basis_alpt() << std::endl;
 
-	auto final_func = [&](std::vector<double> x) -> double 
+	std::cout << "calculating error at final time" << std::endl;
+	record_time.reset();
+
+	// compute the error using adaptive interpolation
+	// construct anther DGsolution v_h and use adaptive Lagrange interpolation to approximate the exact solution
+	const double refine_eps_ext = 1e-6;
+	const double coarsen_eta_ext = -1; 
+	
+	DGAdaptIntp dg_solu_ext(sparse, N_init, NMAX, all_bas_alpt, all_bas_lagr, all_bas_herm, hash, refine_eps_ext, coarsen_eta_ext, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp, oper_matx_lagr_lagr, oper_matx_herm_herm);
+
+	auto final_func = [=](std::vector<double> x, int i) 
 	{	
-		return exp(- (x[0] - 0.5) * (x[0] - 0.5) * 100. - (x[1] - 0.5) * (x[1] - 0.5) * 100.);
+		double sum_x = 0.;
+		for (int d = 0; d < DIM; d++) { sum_x += x[d]; };
+		return cos(2.*Const::PI*(sum_x - DIM * final_time)); 
 	};
+	dg_solu_ext.init_adaptive_intp(final_func);
 
-	std::vector<double> err = dg_f.get_error_no_separable_scalar(final_func, num_gauss_pt_compute_error);
-	std::cout << "L1, L2 and Linf error at final time: " << err[0] << ", " << err[1] << ", " << err[2] << std::endl;
-		
-	std::string file_name = "error_N" + std::to_string(NMAX) + ".txt";
-	inout.write_error(NMAX, err, file_name);
+	// compute L2 error between u_h (numerical solution) and v_h (interpolation to exact solution)
+	double err_l2 = dg_solu_ext.get_L2_error_split_adaptive_intp_scalar(dg_f);
+	std::cout << "L2 error at final time: " << err_l2 << std::endl;	
+	record_time.time("elasped time in computing error");
+
+	// auto final_function = [&](std::vector<double> x) -> double 
+	// {	
+	// 	double sum_x = 0.;
+	// 	for (int d = 0; d < DIM; d++) { sum_x += x[d]; };
+	// 	return cos(2*Const::PI*(sum_x - DIM*final_time));
+	// };
+	// std::vector<double> err = dg_f.get_error_no_separable_scalar(final_function, 4);	
+	// std::cout << std::scientific << std::setprecision(10);
+	// std::cout << "L1, L2 and Linf error at final time: " << err[0] << ", " << err[1] << ", " << err[2] << std::endl;
 
 	return 0;
 }
