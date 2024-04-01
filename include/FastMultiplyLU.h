@@ -391,6 +391,8 @@ protected:
 
     void transform_fucoe_to_rhs(const std::vector<const VecMultiD<double>*> & mat_1D, const std::vector<std::string> & operator_type, const int dim_interp, const double coefficient = 1.0, const int vec_index = 0);
 
+    void transform_fucoe_to_rhs_coarse_grid(const std::vector<const VecMultiD<double>*> & mat_1D, const std::vector<std::string> & operator_type, const int dim_interp, const int mesh_nmax, const double coefficient = 1.0, const int vec_index = 0);
+
     // transform Element::ucoe_alpt to Element::rhs
     // use this function to compute rhs for linear equations
     void transform_ucoe_alpt_to_rhs(const std::vector<const VecMultiD<double>*> & mat_1D, const std::vector<std::string> & operator_type, const int dim_operator, const double coefficient = 1.0, const int vec_index = 0);
@@ -420,8 +422,15 @@ private:
             const std::vector<int> & size_trans_from, const std::vector<int> & size_trans_to, const int dim_transform_1D,
             const bool is_first_step, const bool is_last_step, const int dim_interp, const int vec_index, const double coefficient = 1.0);
 
+    void transform_1D_from_fucoe_to_rhs_coarse_grid(const VecMultiD<double> & mat_1D, const std::string & LU, const std::string & operator_type, 
+            const std::vector<int> & size_trans_from, const std::vector<int> & size_trans_to, const int dim_transform_1D,
+            const bool is_first_step, const bool is_last_step, const int dim_interp, const int vec_index, const int mesh_nmax, const double coefficient = 1.0);
+
     void transform_multiD_partial_sum(const std::vector<const VecMultiD<double>*> & mat_1D_array, const std::vector<int> & dim_order_transform, 
             const std::vector<std::string> & LU_order_transform, const std::vector<std::string> & operator_type, const int dim_interp, const int vec_index, const double coefficient = 1.0);
+
+    void transform_multiD_partial_sum_coarse_grid(const std::vector<const VecMultiD<double>*> & mat_1D_array, const std::vector<int> & dim_order_transform, 
+            const std::vector<std::string> & LU_order_transform, const std::vector<std::string> & operator_type, const int dim_interp, const int vec_index, const int mesh_nmax, const double coefficient = 1.0);
 
     void transform_1D_from_ucoe_alpt_to_rhs(const VecMultiD<double> & mat_1D, const std::string & LU, const std::string & operator_type, 
             const std::vector<int> & size_trans_from, const std::vector<int> & size_trans_to, const int dim_transform_1D,
@@ -570,8 +579,12 @@ public:
     // volume integral
     void rhs_vol_scalar();
 
+    void rhs_vol_scalar_coarse_grid(const int mesh_nmax);
+
     // flux integral on interpolation part
     void rhs_flx_intp_scalar();
+
+    void rhs_flx_intp_scalar_coarse_grid(const int mesh_nmax);
 
 private:
     OperatorMatrix1D<LagrBasis, AlptBasis>* const oper_matx_lagr_ptr;

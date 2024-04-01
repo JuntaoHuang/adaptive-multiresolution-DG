@@ -25,7 +25,7 @@
 int main(int argc, char *argv[])
 {
 	// constant variable
-	const int DIM = 2;
+	const int DIM = 3;
 
 	// static variables
 	AlptBasis::PMAX = 1;
@@ -85,6 +85,12 @@ int main(int argc, char *argv[])
 	// filter coefficient
 	double filter_coef = 1.0;
 
+	// numerical test number
+	// 1: example 4.2 (solid body rotation in 2D) in Guo and Cheng, SISC (2016)
+	// 2: example 4.2 (solid body rotation in 3D) in Guo and Cheng, SISC (2016)
+	// 3: example 4.3 (deformational flow in 2D) in Guo and Cheng, SISC (2016)
+	int test_num = 2;
+
 	OptionsParser args(argc, argv);
 	args.AddOption(&NMAX, "-NM", "--max-mesh-level", "Maximum mesh level");
 	args.AddOption(&N_init, "-N0", "--initial-mesh-level", "Mesh level in initialization");
@@ -98,6 +104,7 @@ int main(int argc, char *argv[])
 	args.AddOption(&NMAX_coarse_grid_stage_1, "-N1", "--max-mesh-stage-1", "Maximum mesh level in stage 1");
 	args.AddOption(&NMAX_coarse_grid_stage_2, "-N2", "--max-mesh-stage-2", "Maximum mesh level in stage 2");
 	args.AddOption(&filter_coef, "-filter", "--filter-coefficient", "Filter coefficient");
+	args.AddOption(&test_num, "-test", "--test-number", "Numerical test number");
 
 	args.Parse();
 	if (!args.Good())
@@ -110,6 +117,11 @@ int main(int argc, char *argv[])
 	// check mesh level in initialization should be less or equal to maximum mesh level
 	if (N_init>NMAX) { std::cout << "Mesh level in initialization should not be larger than Maximum mesh level" << std::endl; return 1; }
 	bool sparse = ((is_init_sparse==1) ? true : false);
+	
+	// check if the test number is valid
+	if (test_num < 1 || test_num > 3) { std::cout << "Invalid test number" << std::endl; return 1; }
+	if (((test_num == 1) || (test_num == 3)) && DIM != 2) { std::cout << "Test number 1 and 3 is only valid for 2D" << std::endl; return 1; }
+	if (test_num == 2 && DIM != 3) { std::cout << "Test number 2 is only valid for 3D" << std::endl; return 1; }
 
 	// initialize hash key
 	Hash hash;
@@ -141,14 +153,28 @@ int main(int argc, char *argv[])
 	// adaptive interpolation for initial function
 	auto init_func = [=](std::vector<double> x, int i)
 	{
-		// example 4.2 (solid body rotation) in Guo and Cheng. "A sparse grid discontinuous Galerkin method for high-dimensional transport equations and its application to kinetic simulations." SISC (2016)
-		const std::vector<double> xc{0.75, 0.5};
-		const double b = 0.23;
+		std::vector<double> xc;
+		double b = 0.;
 
-		// // example 4.3 (deformational flow)
-		// const std::vector<double> xc{0.65, 0.5};
-		// const double b = 0.35;
-						
+		// example 4.2 (deformational flow in 2D)
+		if (test_num == 1)
+		{
+			xc = {0.75, 0.5};
+			b = 0.23;
+		}
+		// example 4.2 (deformational flow in 3D)
+		else if (test_num == 2)
+		{
+			xc = {0.5, 0.55, 0.5};
+			b = 0.45;
+		}
+		// example 4.3 (deformational flow in 2D)
+		else if (test_num == 3)
+		{
+			xc = {0.65, 0.5};
+			b = 0.35;
+		}
+
 		double r_sqr = 0.;
 		for (int d = 0; d < DIM; d++) { r_sqr += pow(x[d] - xc[d], 2.); };
 		double r = pow(r_sqr, 0.5);
@@ -168,16 +194,23 @@ int main(int argc, char *argv[])
 	IO inout(dg_f);
 
 	// ------------------------------	
-	HyperbolicDiffFluxLagrRHS fast_rhs_lagr(dg_f, oper_matx_lagr);		
+	HyperbolicLagrRHS fast_rhs_lagr(dg_f, oper_matx_lagr);
 
 	// fast Lagrange interpolation
     LagrInterpolation interp_lagr(dg_f);
 	FastLagrIntp fast_lagr_intp(dg_f, interp_lagr.Lag_pt_Alpt_1D, interp_lagr.Lag_pt_Alpt_1D_d1);
 
-	// constant in global Lax-Friedrich flux	
-	const double lxf_alpha = 0.5;
-	// wave speed in x and y direction
-	const std::vector<double> wave_speed{0.5, 0.5};
+	// wave speed
+	std::vector<double> wave_speed;
+	if (test_num == 1)
+	{
+		wave_speed = {0.5, 0.5};
+	}
+	else if (test_num == 2)
+	{
+		wave_speed = {sqrt(2.)/4., sqrt(2.)/2., sqrt(2.)/4.};
+	}
+	const std::vector<double> lxf_alpha = wave_speed;
 
 	const int max_mesh = dg_f.max_mesh_level();
 	const double dx = 1./pow(2., max_mesh);
@@ -196,20 +229,24 @@ int main(int argc, char *argv[])
 	// --- Part 3: time evolution ---
 	// // linear operator
 	HyperbolicAlpt linear_stage_1(dg_f, oper_matx_alpt);
-	// x direction: u^- * [v] * alpha / 2
-	linear_stage_1.assemble_matrix_flx_scalar_coarse_grid(0, -1, NMAX_coarse_grid_stage_1, lxf_alpha/2);
-	// x direction: - u^+ * [v] * alpha / 2
-	linear_stage_1.assemble_matrix_flx_scalar_coarse_grid(0, 1, NMAX_coarse_grid_stage_1, -lxf_alpha/2);
-	// y direction: u^- * [v] * alpha / 2
-	linear_stage_1.assemble_matrix_flx_scalar_coarse_grid(1, -1, NMAX_coarse_grid_stage_1, lxf_alpha/2);
-	// y direction: - u^+ * [v] * alpha / 2
-	linear_stage_1.assemble_matrix_flx_scalar_coarse_grid(1, 1, NMAX_coarse_grid_stage_1, -lxf_alpha/2);
+	for (int d = 0; d < DIM; d++)
+	{
+		// u^- * [v] * alpha / 2
+		linear_stage_1.assemble_matrix_flx_scalar_coarse_grid(d, -1, NMAX_coarse_grid_stage_1, lxf_alpha[d]/2);
+
+		// - u^+ * [v] * alpha / 2
+		linear_stage_1.assemble_matrix_flx_scalar_coarse_grid(d, 1, NMAX_coarse_grid_stage_1, -lxf_alpha[d]/2);
+	}
 
 	HyperbolicAlpt linear_stage_2(dg_f, oper_matx_alpt);
-	linear_stage_2.assemble_matrix_flx_scalar_coarse_grid(0, -1, NMAX_coarse_grid_stage_2, lxf_alpha/2);
-	linear_stage_2.assemble_matrix_flx_scalar_coarse_grid(0, 1, NMAX_coarse_grid_stage_2, -lxf_alpha/2);
-	linear_stage_2.assemble_matrix_flx_scalar_coarse_grid(1, -1, NMAX_coarse_grid_stage_2, lxf_alpha/2);
-	linear_stage_2.assemble_matrix_flx_scalar_coarse_grid(1, 1, NMAX_coarse_grid_stage_2, -lxf_alpha/2);
+	for (int d = 0; d < DIM; d++)
+	{
+		// u^- * [v] * alpha / 2
+		linear_stage_2.assemble_matrix_flx_scalar_coarse_grid(d, -1, NMAX_coarse_grid_stage_2, lxf_alpha[d]/2);
+
+		// - u^+ * [v] * alpha / 2
+		linear_stage_2.assemble_matrix_flx_scalar_coarse_grid(d, 1, NMAX_coarse_grid_stage_2, -lxf_alpha[d]/2);
+	}	
 
 	std::cout << "--- evolution started ---" << std::endl;
 	Timer record_time;
@@ -230,13 +267,25 @@ int main(int argc, char *argv[])
         odeSolver.init();		
 
         for ( int stage = 0; stage < odeSolver.num_stage; ++stage )
-        {			
-			// solid body rotation: f_t + (-x2 + 0.5) * f_x1 + (x1 - 0.5) * f_x2 = 0
+        {
             auto coe_func = [&](std::vector<double> x, int d) -> double 
             {
-                if (d==0) { return -x[1] + 0.5; }
-                else { return x[0] - 0.5; }
-				// return 1.0;
+				// a = (-x2 + 0.5, x1 - 0.5)
+				if (test_num == 1)
+				{
+					if (d==0) { return -x[1] + 0.5; }
+					else { return x[0] - 0.5; }
+				}
+				
+				// a = (-sqrt(2)/2 * (x2 - 0.5),
+				// 		sqrt(2)/2 * (x1 - 0.5) + sqrt(2)/2 * (x3 - 0.5)
+				// 		-sqrt(2)/2 * (x2 - 0.5))
+				else if (test_num == 2)
+				{
+					if (d==0) { return -sqrt(2.)/2. * (x[1] - 0.5); }
+					else if (d==1) { return sqrt(2.)/2. * (x[0] - 0.5) + sqrt(2.)/2. * (x[2] - 0.5); }
+					else { return -sqrt(2.)/2. * (x[1] - 0.5); }
+				}
             };
 
 			if (stage == 0)

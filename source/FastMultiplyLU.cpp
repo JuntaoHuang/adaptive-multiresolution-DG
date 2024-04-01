@@ -15,6 +15,20 @@ void FastRHS::transform_fucoe_to_rhs(const std::vector<const VecMultiD<double>*>
     }
 }
 
+void FastRHS::transform_fucoe_to_rhs_coarse_grid(const std::vector<const VecMultiD<double>*> & mat_1D, const std::vector<std::string> & operator_type, const int dim_interp, const int mesh_nmax, const double coefficient, const int vec_index)
+{
+    const int dim = dgsolution_ptr->DIM;
+
+    std::vector<std::vector<int>> dim_order_transform;
+    std::vector<std::vector<std::string>> LU_order_transform;
+    generate_transform_order(dim, dim_order_transform, LU_order_transform);
+    
+    for (size_t sum_num = 0; sum_num < dim_order_transform.size(); sum_num++)
+    {
+        transform_multiD_partial_sum_coarse_grid(mat_1D, dim_order_transform[sum_num], LU_order_transform[sum_num], operator_type, dim_interp, vec_index, mesh_nmax, coefficient);
+    }
+}
+
 void FastRHS::transform_ucoe_alpt_to_rhs(const std::vector<const VecMultiD<double>*> & mat_1D, const std::vector<std::string> & operator_type, const int dim_interp, const double coefficient, const int vec_index)
 {
     const int dim = dgsolution_ptr->DIM;
@@ -78,6 +92,32 @@ void FastRHS::transform_1D_from_fucoe_to_rhs(const VecMultiD<double> & mat_1D, c
     if (is_last_step) { add_transto_to_rhs(vec_index); }
 }
 
+void FastRHS::transform_1D_from_fucoe_to_rhs_coarse_grid(const VecMultiD<double> & mat_1D, const std::string & LU, const std::string & operator_type, 
+        const std::vector<int> & size_trans_from, const std::vector<int> & size_trans_to, const int dim_transform_1D, 
+        const bool is_first_step, const bool is_last_step, const int dim_interp, const int vec_index, const int mesh_nmax, const double coefficient)
+{
+    // transform from interpolation basis to alpert basis
+    const int pmax_trans_from = Element::PMAX_intp;
+    const int pmax_trans_to = Element::PMAX_alpt;
+
+    resize_ucoe_transfrom(size_trans_from, vec_index);
+
+    // if first step, then copy value in ucoe_alpt to ucoe_trans_from
+    // else, copy value ucoe_trans_to to ucoe_trans_from
+    if (is_first_step) { copy_fucoe_to_transfrom(dim_interp, vec_index); }
+    else { copy_transto_to_transfrom(vec_index); }
+
+    resize_ucoe_transto(size_trans_to, vec_index);
+
+    // do transformation in 1D
+    // only multiply coefficient in the first step
+    if (is_first_step) { transform_1D_coarse_grid(mat_1D, LU, operator_type, dim_transform_1D, pmax_trans_from, pmax_trans_to, mesh_nmax, coefficient, vec_index, vec_index); }
+    else { transform_1D_coarse_grid(mat_1D, LU, operator_type, dim_transform_1D, pmax_trans_from, pmax_trans_to, mesh_nmax, 1.0, vec_index, vec_index); }
+
+    // add transform_to to rhs in the last step
+    if (is_last_step) { add_transto_to_rhs(vec_index); }
+}
+
 void FastRHS::transform_multiD_partial_sum(const std::vector<const VecMultiD<double>*> & mat_1D_array, const std::vector<int> & dim_order_transform, 
         const std::vector<std::string> & LU_order_transform, const std::vector<std::string> & operator_type, const int dim_interp, const int vec_index, const double coefficient)
 {
@@ -98,6 +138,28 @@ void FastRHS::transform_multiD_partial_sum(const std::vector<const VecMultiD<dou
     for (size_t d = 0; d < dim; d++)
     {
         transform_1D_from_fucoe_to_rhs(*(mat_1D_array[dim_order_transform[d]]), LU_order_transform[d], operator_type[dim_order_transform[d]], series_vec[d], series_vec[d+1], dim_order_transform[d], is_first_step[d], is_last_step[d], dim_interp, vec_index, coefficient);
+    }
+}
+
+void FastRHS::transform_multiD_partial_sum_coarse_grid(const std::vector<const VecMultiD<double>*> & mat_1D_array, const std::vector<int> & dim_order_transform, const std::vector<std::string> & LU_order_transform, const std::vector<std::string> & operator_type, const int dim_interp, const int vec_index, const int mesh_nmax, const double coefficient)
+{
+    // transform from alpert basis to interpolation basis
+    const int pmax_trans_from = Element::PMAX_intp;
+    const int pmax_trans_to = Element::PMAX_alpt;
+    const int dim = Element::DIM;
+
+    std::vector<std::vector<int>> series_vec = series_vec_transform_size(pmax_trans_from+1, pmax_trans_to+1, dim, dim_order_transform);
+
+    // variable control first or last step
+    std::vector<bool> is_first_step(dim, false);
+    is_first_step[0] = true;
+    
+    std::vector<bool> is_last_step(dim, false);    
+    is_last_step[dim-1] = true;
+    
+    for (size_t d = 0; d < dim; d++)
+    {
+        transform_1D_from_fucoe_to_rhs_coarse_grid(*(mat_1D_array[dim_order_transform[d]]), LU_order_transform[d], operator_type[dim_order_transform[d]], series_vec[d], series_vec[d+1], dim_order_transform[d], is_first_step[d], is_last_step[d], dim_interp, vec_index, mesh_nmax, coefficient);
     }
 }
 
@@ -1078,6 +1140,24 @@ void HyperbolicLagrRHS::rhs_vol_scalar()
     }
 }
 
+void HyperbolicLagrRHS::rhs_vol_scalar_coarse_grid(const int mesh_nmax)
+{
+    const int dim = dgsolution_ptr->DIM;
+    
+    std::vector<const VecMultiD<double>*> oper_matx_1D;
+    std::vector<std::string> operator_type(dim, "vol");
+    for (size_t d = 0; d < dim; d++)
+    {
+        oper_matx_1D.clear();
+        for (size_t dim_derivative = 0; dim_derivative < dim; dim_derivative++)
+        {
+            if (dim_derivative == d) { oper_matx_1D.push_back(&(oper_matx_lagr_ptr->u_vx)); }
+            else { oper_matx_1D.push_back(&(oper_matx_lagr_ptr->u_v)); }
+        }
+        transform_fucoe_to_rhs_coarse_grid(oper_matx_1D, operator_type, d, mesh_nmax);
+    }
+}
+
 void HyperbolicLagrRHS::rhs_flx_intp_scalar()
 {
     const int dim = dgsolution_ptr->DIM;
@@ -1105,6 +1185,36 @@ void HyperbolicLagrRHS::rhs_flx_intp_scalar()
             }
         }
         transform_fucoe_to_rhs(oper_matx_1D, operator_type, d, 0.5);
+    }
+}
+
+void HyperbolicLagrRHS::rhs_flx_intp_scalar_coarse_grid(const int mesh_nmax)
+{
+    const int dim = dgsolution_ptr->DIM;
+
+    const VecMultiD<double> oper_matx_uave_vjp = oper_matx_lagr_ptr->ulft_vjp + oper_matx_lagr_ptr->urgt_vjp;
+
+    std::vector<const VecMultiD<double>*> oper_matx_1D;
+    std::vector<std::string> operator_type;
+    for (size_t d = 0; d < dim; d++)
+    {
+        oper_matx_1D.clear();
+        operator_type.clear();
+
+        for (size_t dim_derivative = 0; dim_derivative < dim; dim_derivative++)
+        {
+            if (dim_derivative == d) 
+            { 
+                oper_matx_1D.push_back(&oper_matx_uave_vjp);
+                operator_type.push_back("flx");
+            }
+            else 
+            { 
+                oper_matx_1D.push_back(&oper_matx_lagr_ptr->u_v);
+                operator_type.push_back("vol");
+            }
+        }
+        transform_fucoe_to_rhs_coarse_grid(oper_matx_1D, operator_type, d, mesh_nmax, 0.5);
     }
 }
 
