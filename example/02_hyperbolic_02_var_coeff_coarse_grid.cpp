@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
 	// static variables
 	AlptBasis::PMAX = 1;
 
-	LagrBasis::PMAX = 5;
+	LagrBasis::PMAX = 2;
 	LagrBasis::msh_case = 1;
 
 	HermBasis::PMAX = 3;
@@ -135,14 +135,23 @@ int main(int argc, char *argv[])
 	DGAdaptIntp dg_f(sparse, N_init, NMAX, all_bas_alpt, all_bas_lagr, all_bas_herm, hash, refine_eps, coarsen_eta, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp, oper_matx_lagr_lagr, oper_matx_herm_herm);
 	
 	// adaptive interpolation for initial function
-	// u(x,0) = cos(2 * pi * (sum_(d=1)^DIM x_d)
-	auto init_non_separable_func = [=](std::vector<double> x, int i)
-	{	
-		double sum_x = 0.;
-		for (int d = 0; d < DIM; d++) { sum_x += x[d]; };
-		return cos(2*Const::PI*sum_x);
+	auto init_func = [=](std::vector<double> x, int i)
+	{
+		// example 4.2 (solid body rotation) in Guo and Cheng. "A sparse grid discontinuous Galerkin method for high-dimensional transport equations and its application to kinetic simulations." SISC (2016)
+		const std::vector<double> xc{0.75, 0.5};
+		const double b = 0.23;
+
+		// // example 4.3 (deformational flow)
+		// const std::vector<double> xc{0.65, 0.5};
+		// const double b = 0.35;
+						
+		double r_sqr = 0.;
+		for (int d = 0; d < DIM; d++) { r_sqr += pow(x[d] - xc[d], 2.); };
+		double r = pow(r_sqr, 0.5);
+		if (r <= b) { return pow(b, DIM-1) * pow(cos(Const::PI*r/(2.*b)), 6.); }
+		else { return 0.; }
 	};
-	dg_f.init_adaptive_intp(init_non_separable_func);
+	dg_f.init_adaptive_intp(init_func);
 
 	// // project initial function into numerical solution
 	// // f(x,y) = cos(2*pi*(x+y)) = cos(2*pi*x) * cos(2*pi*y) - sin(2*pi*x) * sin(2*pi*y)
@@ -162,13 +171,17 @@ int main(int argc, char *argv[])
 	FastLagrIntp fast_lagr_intp(dg_f, interp_lagr.Lag_pt_Alpt_1D, interp_lagr.Lag_pt_Alpt_1D_d1);
 
 	// constant in global Lax-Friedrich flux	
-	const double lxf_alpha = 1.0;
+	const double lxf_alpha = 0.5;
 	// wave speed in x and y direction
-	const std::vector<double> wave_speed{1.0, 1.0};
+	const std::vector<double> wave_speed{0.5, 0.5};
 
 	const int max_mesh = dg_f.max_mesh_level();
 	const double dx = 1./pow(2., max_mesh);
-	double dt = dx * cfl / DIM;
+
+	double sum_wave_speed = 0.;
+	for (int d = 0; d < DIM; d++) { sum_wave_speed += wave_speed[d]; };
+	double dt = dx * cfl / sum_wave_speed;
+
 	int total_time_step = ceil(final_time/dt) + 1;
 	dt = final_time/total_time_step;
 
@@ -212,9 +225,9 @@ int main(int argc, char *argv[])
 			// solid body rotation: f_t + (-x2 + 0.5) * f_x1 + (x1 - 0.5) * f_x2 = 0
             auto coe_func = [&](std::vector<double> x, int d) -> double 
             {
-                // if (d==0) { return -x[1] + 0.5; }
-                // else { return x[0] - 0.5; }
-				return 1.0;
+                if (d==0) { return -x[1] + 0.5; }
+                else { return x[0] - 0.5; }
+				// return 1.0;
             };
 
 			if (stage == 0)
@@ -296,16 +309,21 @@ int main(int argc, char *argv[])
 
 	auto final_func = [=](std::vector<double> x, int i) 
 	{	
-		double sum_x = 0.;
-		for (int d = 0; d < DIM; d++) { sum_x += x[d]; };
-		return cos(2.*Const::PI*(sum_x - DIM * final_time)); 
+		return init_func(x, i);
 	};
-	dg_solu_ext.init_adaptive_intp(final_func);
+	dg_solu_ext.init_adaptive_intp(init_func);
 
 	// compute L2 error between u_h (numerical solution) and v_h (interpolation to exact solution)
 	double err_l2 = dg_solu_ext.get_L2_error_split_adaptive_intp_scalar(dg_f);
 	std::cout << "L2 error at final time: " << err_l2 << std::endl;	
 	record_time.time("elasped time in computing error");
+
+	// auto final_func = [&](std::vector<double> x) -> double 
+	// {	
+	// 	return exp(- (x[0] - 0.5) * (x[0] - 0.5) * 100. - (x[1] - 0.5) * (x[1] - 0.5) * 100.);
+	// };
+	// std::vector<double> err = dg_f.get_error_no_separable_scalar(final_func, num_gauss_pt_compute_error);
+	// std::cout << "L1, L2 and Linf error at final time: " << err[0] << ", " << err[1] << ", " << err[2] << std::endl;
 
 	// auto final_function = [&](std::vector<double> x) -> double 
 	// {	
