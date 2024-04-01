@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
 	int NMAX = 3;
 	int N_init = NMAX;
 	int is_init_sparse = 0;			// use full grid (0) or sparse grid (1) when initialization
-	double final_time = 1.5;
+	double final_time = 2 * Const::PI;
 	double cfl = 0.2;
 	std::string boundary_type = "period";	// this variable will be used in constructors of class OperatorMatrix1D
 
@@ -130,8 +130,12 @@ int main(int argc, char *argv[])
 
 	OperatorMatrix1D<HermBasis, HermBasis> oper_matx_herm_herm(all_bas_herm, all_bas_herm, boundary_type);
 	OperatorMatrix1D<LagrBasis, LagrBasis> oper_matx_lagr_lagr(all_bas_lagr, all_bas_lagr, boundary_type);
+	// --- End of Part 1 ---
+	// --------------------------------------------------------------------------------------------
 
-	// initialization of DG solution (distribution function f)
+
+	// --------------------------------------------------------------------------------------------
+	// --- Part 2: initialization of DG solution ---
 	DGAdaptIntp dg_f(sparse, N_init, NMAX, all_bas_alpt, all_bas_lagr, all_bas_herm, hash, refine_eps, coarsen_eta, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp, oper_matx_lagr_lagr, oper_matx_herm_herm);
 	
 	// adaptive interpolation for initial function
@@ -184,7 +188,12 @@ int main(int argc, char *argv[])
 
 	int total_time_step = ceil(final_time/dt) + 1;
 	dt = final_time/total_time_step;
+	// --- End of Part 2 ---
+	// --------------------------------------------------------------------------------------------
 
+
+	// --------------------------------------------------------------------------------------------
+	// --- Part 3: time evolution ---
 	// // linear operator
 	HyperbolicAlpt linear_stage_1(dg_f, oper_matx_alpt);
 	// x direction: u^- * [v] * alpha / 2
@@ -202,10 +211,10 @@ int main(int argc, char *argv[])
 	linear_stage_2.assemble_matrix_flx_scalar_coarse_grid(1, -1, NMAX_coarse_grid_stage_2, lxf_alpha/2);
 	linear_stage_2.assemble_matrix_flx_scalar_coarse_grid(1, 1, NMAX_coarse_grid_stage_2, -lxf_alpha/2);
 
-	// begin time evolution
 	std::cout << "--- evolution started ---" << std::endl;
 	Timer record_time;
 	double curr_time = 0.;
+	int is_stable = 1;
 
 	// Lagrange interpolation
 	LagrInterpolation interp(dg_f);
@@ -283,6 +292,7 @@ int main(int argc, char *argv[])
 			if ((solu_l2_norm[0] > 100.0) || std::isnan(solu_l2_norm[0]) || std::isinf(solu_l2_norm[0]))
 			{ 
 				std::cout << "L2 norm is too LARGE: " << solu_l2_norm[0] << std::endl;
+				is_stable = 0;
 				break;
 			}
 
@@ -296,7 +306,12 @@ int main(int argc, char *argv[])
 	std::cout << "--- evolution finished ---" << std::endl;
 	
 	record_time.time("running time");
+	// --- End of Part 3 ---
+	// --------------------------------------------------------------------------------------------
 
+
+	// --------------------------------------------------------------------------------------------
+	// --- Part 4: calculate error between numerical solution and exact solution ---
 	std::cout << "calculating error at final time" << std::endl;
 	record_time.reset();
 
@@ -334,6 +349,37 @@ int main(int argc, char *argv[])
 	// std::vector<double> err = dg_f.get_error_no_separable_scalar(final_function, 4);	
 	// std::cout << std::scientific << std::setprecision(10);
 	// std::cout << "L1, L2 and Linf error at final time: " << err[0] << ", " << err[1] << ", " << err[2] << std::endl;
+	// --- End of Part 4 ---
+	// --------------------------------------------------------------------------------------------
 
+
+	// --------------------------------------------------------------------------------------------
+	// --- Part 5: output results into file ---	
+	// output error
+	if (std::isnan(err_l2) || std::isinf(err_l2))
+	{
+		is_stable = 0; err_l2 = -1;
+	}
+	std::string output_file_name = 
+		"result_dim_" + std::to_string(DIM) 
+		+ "_N1_" + std::to_string(NMAX_coarse_grid_stage_1)
+		+ "_N2_" + std::to_string(NMAX_coarse_grid_stage_2)
+		+ "_cfl_" + std::to_string(cfl)		
+		+ "_filter_" + std::to_string(filter_coef)
+		+ "_tf_" + std::to_string(final_time)
+		+ ".txt";
+	std::ofstream output_file(output_file_name);
+	output_file << "NMAX in stage 1: " << std::endl << NMAX_coarse_grid_stage_1 << std::endl
+				<< "NMAX in stage 2: " << std::endl << NMAX_coarse_grid_stage_2 << std::endl
+				<< "CFL: " << std::endl << cfl << std::endl
+				<< "Final time: " << std::endl << final_time << std::endl
+				<< "Filter coefficient: " << std::endl << filter_coef << std::endl
+				<< "Stable (1) or not (0): " << std::endl << is_stable << std::endl
+				<< "L2 error at final time: " << std::endl
+				<< err_l2 << std::endl;
+	output_file.close();
+
+	// --- End of Part 5 ---
+	// --------------------------------------------------------------------------------------------
 	return 0;
 }
