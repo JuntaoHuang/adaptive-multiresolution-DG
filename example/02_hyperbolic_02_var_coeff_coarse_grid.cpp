@@ -25,7 +25,7 @@
 int main(int argc, char *argv[])
 {
 	// constant variable
-	const int DIM = 3;
+	const int DIM = 2;
 
 	// static variables
 	AlptBasis::PMAX = 1;
@@ -87,9 +87,10 @@ int main(int argc, char *argv[])
 
 	// numerical test number
 	// 1: example 4.2 (solid body rotation in 2D) in Guo and Cheng, SISC (2016)
+	// 4: example 4.2 (solid body rotation in 2D) in Guo and Cheng, SISC (2016), with initial condition Gaussian function
 	// 2: example 4.2 (solid body rotation in 3D) in Guo and Cheng, SISC (2016)
 	// 3: example 4.3 (deformational flow in 2D) in Guo and Cheng, SISC (2016)
-	int test_num = 2;
+	int test_num = 4;
 
 	OptionsParser args(argc, argv);
 	args.AddOption(&NMAX, "-NM", "--max-mesh-level", "Maximum mesh level");
@@ -119,8 +120,8 @@ int main(int argc, char *argv[])
 	bool sparse = ((is_init_sparse==1) ? true : false);
 	
 	// check if the test number is valid
-	if (test_num < 1 || test_num > 3) { std::cout << "Invalid test number" << std::endl; return 1; }
-	if (((test_num == 1) || (test_num == 3)) && DIM != 2) { std::cout << "Test number 1 and 3 is only valid for 2D" << std::endl; return 1; }
+	if (test_num < 1 || test_num > 4) { std::cout << "Invalid test number" << std::endl; return 1; }
+	if (((test_num == 1) || (test_num == 3) || (test_num == 4)) && DIM != 2) { std::cout << "Test number 1, 3, 4 is only valid for 2D" << std::endl; return 1; }
 	if (test_num == 2 && DIM != 3) { std::cout << "Test number 2 is only valid for 3D" << std::endl; return 1; }
 
 	// initialize hash key
@@ -155,31 +156,41 @@ int main(int argc, char *argv[])
 	{
 		std::vector<double> xc;
 		double b = 0.;
+		
+		if (test_num == 1 || test_num == 2 || test_num == 3)
+		{
+			// example 4.2 (deformational flow in 2D)
+			if (test_num == 1)
+			{
+				xc = {0.75, 0.5};
+				b = 0.23;
+			}
+			// example 4.2 (deformational flow in 3D)
+			else if (test_num == 2)
+			{
+				xc = {0.5, 0.55, 0.5};
+				b = 0.45;
+			}
+			// example 4.3 (deformational flow in 2D)
+			else if (test_num == 3)
+			{
+				xc = {0.65, 0.5};
+				b = 0.35;
+			}
 
-		// example 4.2 (deformational flow in 2D)
-		if (test_num == 1)
-		{
-			xc = {0.75, 0.5};
-			b = 0.23;
-		}
-		// example 4.2 (deformational flow in 3D)
-		else if (test_num == 2)
-		{
-			xc = {0.5, 0.55, 0.5};
-			b = 0.45;
-		}
-		// example 4.3 (deformational flow in 2D)
-		else if (test_num == 3)
-		{
-			xc = {0.65, 0.5};
-			b = 0.35;
+			double r_sqr = 0.;
+			for (int d = 0; d < DIM; d++) { r_sqr += pow(x[d] - xc[d], 2.); };
+			double r = pow(r_sqr, 0.5);
+			if (r <= b) { return pow(b, DIM-1) * pow(cos(Const::PI*r/(2.*b)), 6.); }
+			else { return 0.; }
 		}
 
-		double r_sqr = 0.;
-		for (int d = 0; d < DIM; d++) { r_sqr += pow(x[d] - xc[d], 2.); };
-		double r = pow(r_sqr, 0.5);
-		if (r <= b) { return pow(b, DIM-1) * pow(cos(Const::PI*r/(2.*b)), 6.); }
-		else { return 0.; }
+		if (test_num == 4)
+		{
+			xc = {0.55, 0.5};
+			double sigma = 0.075;
+			return 1.0/(sigma * sqrt(2.0*Const::PI)) * exp(-1.0/(2.0*sigma*sigma) * (pow(x[0] - xc[0], 2.0) + pow(x[1] - xc[1], 2.0)));
+		}
 	};
 	dg_f.init_adaptive_intp(init_func);
 
@@ -202,7 +213,7 @@ int main(int argc, char *argv[])
 
 	// wave speed
 	std::vector<double> wave_speed;
-	if (test_num == 1)
+	if ((test_num == 1) || (test_num == 4))
 	{
 		wave_speed = {0.5, 0.5};
 	}
