@@ -123,6 +123,7 @@ int main(int argc, char *argv[])
 	if (test_num < 1 || test_num > 4) { std::cout << "Invalid test number" << std::endl; return 1; }
 	if (((test_num == 1) || (test_num == 3) || (test_num == 4)) && DIM != 2) { std::cout << "Test number 1, 3, 4 is only valid for 2D" << std::endl; return 1; }
 	if (test_num == 2 && DIM != 3) { std::cout << "Test number 2 is only valid for 3D" << std::endl; return 1; }
+	if (test_num == 3) { std::cout << "Test number 3 has variable characteristic speed, not implemented yet" << std::endl; return 1; }
 
 	// initialize hash key
 	Hash hash;
