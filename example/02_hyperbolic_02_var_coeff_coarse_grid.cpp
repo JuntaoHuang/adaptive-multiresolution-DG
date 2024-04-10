@@ -186,11 +186,16 @@ int main(int argc, char *argv[])
 			else { return 0.; }
 		}
 
-		if (test_num == 4)
+		else if (test_num == 4)
 		{
 			xc = {0.55, 0.5};
 			double sigma = 0.075;
 			return 1.0/(sigma * sqrt(2.0*Const::PI)) * exp(-1.0/(2.0*sigma*sigma) * (pow(x[0] - xc[0], 2.0) + pow(x[1] - xc[1], 2.0)));
+		}
+
+		else
+		{
+			std::cout << "Test number is not implemented yet" << std::endl; exit(1);
 		}
 	};
 	dg_f.init_adaptive_intp(init_func);
@@ -283,7 +288,7 @@ int main(int argc, char *argv[])
             auto coe_func = [&](std::vector<double> x, int d) -> double 
             {
 				// a = (-x2 + 0.5, x1 - 0.5)
-				if (test_num == 1)
+				if ((test_num == 1) || (test_num == 4))
 				{
 					if (d==0) { return -x[1] + 0.5; }
 					else { return x[0] - 0.5; }
@@ -297,6 +302,11 @@ int main(int argc, char *argv[])
 					if (d==0) { return -sqrt(2.)/2. * (x[1] - 0.5); }
 					else if (d==1) { return sqrt(2.)/2. * (x[0] - 0.5) + sqrt(2.)/2. * (x[2] - 0.5); }
 					else { return -sqrt(2.)/2. * (x[1] - 0.5); }
+				}
+
+				else
+				{
+					std::cout << "Test number is not implemented yet" << std::endl; exit(1);
 				}
             };
 
