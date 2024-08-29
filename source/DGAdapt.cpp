@@ -482,6 +482,104 @@ void DGAdapt::filter(const double damp_coef, const std::vector<double> & wave_sp
 	}
 }
 
+// void DGAdapt::filter_local(const double damp_coef, const std::vector<double> & wave_speed, const double dt, const int filter_start_level_sum)
+// {
+// 	const double coefficient = damp_coef * (dt * dt / 2.0) * (M_PI * M_PI);
+	
+// 	for (auto & iter : this->dg)
+// 	{	
+// 		// compute the sum of mesh level
+// 		const int level_sum = std::accumulate(iter.second.level.begin(), iter.second.level.end(), 0);
+
+// 		if (level_sum >= filter_start_level_sum)
+// 		{
+// // // wave speed
+// // if (d==0) { return -x[1] + 0.5; }
+// // else { return x[0] - 0.5; }
+// std::vector<double> local_wave_speed(DIM, 0.0);
+// for (int d = 0; d < DIM; d++)
+// {
+// 	if (d==0)
+// 	{
+// 		local_wave_speed[d] = std::max(abs(-iter.second.xl[d] + 0.5), abs(-iter.second.xr[d] + 0.5));
+// 	}
+// 	else
+// 	{
+// 		local_wave_speed[d] = std::max(abs(iter.second.xl[d] - 0.5), abs(iter.second.xr[d] - 0.5));
+// 	}	
+// }
+// 			// compute c_1 * 2^(l_1) + c_2 * 2^(l_2) + ... + c_d * 2^(l_d)
+// 			// where c_i is the wave speed in i-th dimension
+// 			// and l_i is the mesh level in i-th dimension
+// 			double index_sum = 0.0;
+// 			for (int d = 0; d < DIM; d++)
+// 			{
+// 				// index_sum += wave_speed[d] * pow(2.0, iter.second.level[d]);
+// 				index_sum += local_wave_speed[d] * pow(2.0, iter.second.level[d]);
+// 			}
+// 			iter.second.ucoe_alpt[0] *= exp(- coefficient * index_sum * index_sum);
+// 		}
+// 	}
+// }
+
+// void DGAdapt::filter_viscosity(const double dt, const double dx, const int convergence_order, const double l2_norm_previous, const double amplify_factor)
+// {	
+// 	// compute the coefficient in the filter
+// 	double coefficient = 0.0;
+
+// 	const int max_iteration = 100;
+// 	int iteration = 0;
+// 	while (true)
+// 	{
+// 		double coefficient_previous = coefficient;
+
+// 		double l2_norm = 0.0;
+// 		double l2_norm_derivative = 0.0;
+// 		for (auto const & iter : dg)
+// 		{
+// 			double index_sum = 0.0;
+// 			for (int d = 0; d < DIM; d++)			
+// 			{
+// 				if (iter.second.level[d] != 0)
+// 				{
+// 					index_sum += M_PI * M_PI * pow(2.0, 2.0 * iter.second.level[d]);
+// 				}				
+// 			}
+
+// 			double l2_norm_local = exp(- 2.0 * coefficient * dt * pow(dx, convergence_order) * index_sum) * iter.second.get_L2_norm_element()[0];
+// 			l2_norm += l2_norm_local;
+// 			l2_norm_derivative += (- 2.0 * dt * pow(dx, convergence_order) * index_sum) * l2_norm_local;
+// 		}
+// 		l2_norm -= l2_norm_previous;
+
+// 		coefficient = coefficient - l2_norm/l2_norm_derivative;
+
+// 		if (abs(coefficient - coefficient_previous) < 1.0e-10) { break; }
+// 		iteration += 1;
+
+// 		if (iteration > max_iteration)
+// 		{
+// 			std::cout << "filter_viscosity() does not converge" << std::endl;
+// 			break;
+// 		}
+// 	}
+
+// 	coefficient *= amplify_factor;
+
+// 	for (auto & iter : this->dg)
+// 	{	
+// 		double index_sum = 0.0;
+// 		for (int d = 0; d < DIM; d++)
+// 		{
+// 			if (iter.second.level[d] != 0)
+// 			{
+// 				index_sum += M_PI * M_PI * pow(2.0, 2.0 * iter.second.level[d]);
+// 			}
+// 		}
+// 		iter.second.ucoe_alpt[0] *= exp(- coefficient * dt * pow(dx, convergence_order) * index_sum);
+// 	}
+// }
+
 // NOT TESTED
 void DGAdapt::refine(const int max_mesh, const std::vector<int> dim)
 {

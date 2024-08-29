@@ -85,12 +85,14 @@ int main(int argc, char *argv[])
 	// filter coefficient
 	double filter_coef = 1.0;
 
-	// numerical test number
-	// 1: example 4.2 (solid body rotation in 2D) in Guo and Cheng, SISC (2016)
-	// 4: example 4.2 (solid body rotation in 2D) in Guo and Cheng, SISC (2016), with initial condition Gaussian function
-	// 2: example 4.2 (solid body rotation in 3D) in Guo and Cheng, SISC (2016)
-	// 3: example 4.3 (deformational flow in 2D) in Guo and Cheng, SISC (2016)
-	int test_num = 4;
+	// numerical test number (all taken from Guo and Cheng, SISC (2016))
+	// 1: example 4.2 (solid body rotation in 2D)
+	// 4: example 4.2 (solid body rotation in 2D) with initial condition Gaussian function
+	// 2: example 4.2 (solid body rotation in 3D)
+	// 3: example 4.3 (deformational flow in 2D)
+	int test_num = 1;
+
+	const double period_time_deformation_flow = 1.5;
 
 	OptionsParser args(argc, argv);
 	args.AddOption(&NMAX, "-NM", "--max-mesh-level", "Maximum mesh level");
@@ -123,7 +125,6 @@ int main(int argc, char *argv[])
 	if (test_num < 1 || test_num > 4) { std::cout << "Invalid test number" << std::endl; return 1; }
 	if (((test_num == 1) || (test_num == 3) || (test_num == 4)) && DIM != 2) { std::cout << "Test number 1, 3, 4 is only valid for 2D" << std::endl; return 1; }
 	if (test_num == 2 && DIM != 3) { std::cout << "Test number 2 is only valid for 3D" << std::endl; return 1; }
-	if (test_num == 3) { std::cout << "Test number 3 has variable characteristic speed, not implemented yet" << std::endl; return 1; }
 
 	// initialize hash key
 	Hash hash;
@@ -209,6 +210,7 @@ int main(int argc, char *argv[])
 
     // output
 	IO inout(dg_f);
+	inout.output_num("profile2D_init.txt");
 
 	// ------------------------------	
 	HyperbolicLagrRHS fast_rhs_lagr(dg_f, oper_matx_lagr);
@@ -217,24 +219,32 @@ int main(int argc, char *argv[])
     LagrInterpolation interp_lagr(dg_f);
 	FastLagrIntp fast_lagr_intp(dg_f, interp_lagr.Lag_pt_Alpt_1D, interp_lagr.Lag_pt_Alpt_1D_d1);
 
-	// wave speed
-	std::vector<double> wave_speed;
+	// max wave speed
+	std::vector<double> max_wave_speed;
 	if ((test_num == 1) || (test_num == 4))
 	{
-		wave_speed = {0.5, 0.5};
+		max_wave_speed = {0.5, 0.5};
 	}
 	else if (test_num == 2)
 	{
-		wave_speed = {sqrt(2.)/4., sqrt(2.)/2., sqrt(2.)/4.};
+		max_wave_speed = {sqrt(2.)/4., sqrt(2.)/2., sqrt(2.)/4.};
 	}
-	const std::vector<double> lxf_alpha = wave_speed;
+	else if (test_num == 3)
+	{
+		max_wave_speed = {1.0, 1.0};
+	}
+	else
+	{
+		std::cout << "Test number is not implemented yet" << std::endl; exit(1);
+	}
+	const std::vector<double> lxf_alpha = max_wave_speed;
 
 	const int max_mesh = dg_f.max_mesh_level();
 	const double dx = 1./pow(2., max_mesh);
 
-	double sum_wave_speed = 0.;
-	for (int d = 0; d < DIM; d++) { sum_wave_speed += wave_speed[d]; };
-	double dt = dx * cfl / sum_wave_speed;
+	double sum_max_wave_speed = 0.;
+	for (int d = 0; d < DIM; d++) { sum_max_wave_speed += max_wave_speed[d]; };
+	double dt = dx * cfl / sum_max_wave_speed;
 
 	int total_time_step = ceil(final_time/dt) + 1;
 	dt = final_time/total_time_step;
@@ -285,6 +295,7 @@ int main(int argc, char *argv[])
 
         for ( int stage = 0; stage < odeSolver.num_stage; ++stage )
         {
+			// variable coefficient function
             auto coe_func = [&](std::vector<double> x, int d) -> double 
             {
 				// a = (-x2 + 0.5, x1 - 0.5)
@@ -302,6 +313,19 @@ int main(int argc, char *argv[])
 					if (d==0) { return -sqrt(2.)/2. * (x[1] - 0.5); }
 					else if (d==1) { return sqrt(2.)/2. * (x[0] - 0.5) + sqrt(2.)/2. * (x[2] - 0.5); }
 					else { return -sqrt(2.)/2. * (x[1] - 0.5); }
+				}
+
+				// a = (sin(pi*x1)^2 * sin(2*pi*x2) * g(t),
+				// 		-sin(pi*x2)^2 * sin(2*pi*x1) * g(t))
+				// with g(t) = cos(pi*t/T)
+				else if (test_num == 3)
+				{
+					double gt_time = curr_time;
+					if (stage == 1) { gt_time += dt/2.; }
+					double gt = cos(Const::PI * gt_time / period_time_deformation_flow);
+
+					if (d==0) { return pow(sin(Const::PI*x[0]), 2.) * sin(2*Const::PI*x[1]) * gt; }
+					else { return - pow(sin(Const::PI*x[1]), 2.) * sin(2*Const::PI*x[0]) * gt; }
 				}
 
 				else
@@ -350,7 +374,7 @@ int main(int argc, char *argv[])
         }
 
 		// add filter to solution for stability
-		dg_f.filter(filter_coef, wave_speed, dt, NMAX_coarse_grid_stage_1 + 1);
+		dg_f.filter(filter_coef, max_wave_speed, dt, NMAX_coarse_grid_stage_1 + 1);
 
 		curr_time += dt;
 		
@@ -370,7 +394,8 @@ int main(int argc, char *argv[])
 			record_time.time("running time");
 			std::cout << "num of time steps: " << num_time_step 
 					<< "; time step: " << dt 
-					<< "; curr time: " << curr_time << std::endl;
+					<< "; curr time: " << curr_time
+					<< "; L2 norm: " << solu_l2_norm[0] << std::endl;
 		}		
 	}
 
@@ -449,6 +474,9 @@ int main(int argc, char *argv[])
 				<< "L2 error at final time: " << std::endl
 				<< err_l2 << std::endl;
 	output_file.close();
+
+	// output
+	inout.output_num("profile2D_final.txt");
 
 	// --- End of Part 5 ---
 	// --------------------------------------------------------------------------------------------

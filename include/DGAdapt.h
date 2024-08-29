@@ -73,6 +73,9 @@ public:
 	// filter coefficients of DG solution from a given level
 	void filter(const double damp_coef, const std::vector<double> & wave_speed, const double dt, const int filter_start_level_sum);
 
+	// // add artificial viscosity to DG solution with a cheap way as filter
+	// void filter_viscosity(const double dt, const double dx, const int convergence_order, const double l2_norm_previous, const double amplify_factor);
+
 	// refine to some max mesh level in given dimension
 	// NOT TESTED
 	void refine(const int max_mesh, const std::vector<int> dim);

@@ -20,15 +20,19 @@
 #include "subs.h"
 #include "VecMultiD.h"
 
-// this example shows sparse (and full) grid for scalar hyperbolic equation with periodic boundary condition
-// there is no adaptivity in this example
+// this example shows sparse (and full) grid (no adaptivity) for scalar hyperbolic equation with periodic boundary condition
+// 
+// different mesh levels in different stages
 // 
 // example:
-// ./02_hyperbolic_01_scalar_const_coefficient -N 7 -s 1 -tf 0.2
+// ./02_hyperbolic_01_scalar_const_coefficient_coarse_grid -N 9 -N1 8 -N2 9 -tf 1.0 -filter 1.0 -cfl 0.2
 // 
 // -N: maximum mesh level
-// -s: sparse grid (1) or full grid (0)
+// -N1: maximum mesh level in stage 1
+// -N2: maximum mesh level in stage 2
 // -tf: final time
+// -filter: filter coefficient
+// -cfl: CFL number
 // 
 // You can also change DIM and AlptBasis::PMAX
 
