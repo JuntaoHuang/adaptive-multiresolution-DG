@@ -482,45 +482,78 @@ void DGAdapt::filter(const double damp_coef, const std::vector<double> & wave_sp
 	}
 }
 
-// void DGAdapt::filter_local(const double damp_coef, const std::vector<double> & wave_speed, const double dt, const int filter_start_level_sum)
-// {
-// 	const double coefficient = damp_coef * (dt * dt / 2.0) * (M_PI * M_PI);
+void DGAdapt::filter_local(const double damp_coef, std::function<double(std::vector<double>, int)> wave_speed_func, const double dt, const int filter_start_level_sum)
+{
+	const double coefficient = damp_coef * (dt * dt / 2.0) * (M_PI * M_PI);
 	
-// 	for (auto & iter : this->dg)
-// 	{	
-// 		// compute the sum of mesh level
-// 		const int level_sum = std::accumulate(iter.second.level.begin(), iter.second.level.end(), 0);
+	for (auto & iter : this->dg)
+	{	
+		// compute the sum of mesh level
+		const int level_sum = std::accumulate(iter.second.level.begin(), iter.second.level.end(), 0);
 
-// 		if (level_sum >= filter_start_level_sum)
-// 		{
-// // // wave speed
-// // if (d==0) { return -x[1] + 0.5; }
-// // else { return x[0] - 0.5; }
-// std::vector<double> local_wave_speed(DIM, 0.0);
-// for (int d = 0; d < DIM; d++)
-// {
-// 	if (d==0)
-// 	{
-// 		local_wave_speed[d] = std::max(abs(-iter.second.xl[d] + 0.5), abs(-iter.second.xr[d] + 0.5));
-// 	}
-// 	else
-// 	{
-// 		local_wave_speed[d] = std::max(abs(iter.second.xl[d] - 0.5), abs(iter.second.xr[d] - 0.5));
-// 	}	
-// }
-// 			// compute c_1 * 2^(l_1) + c_2 * 2^(l_2) + ... + c_d * 2^(l_d)
-// 			// where c_i is the wave speed in i-th dimension
-// 			// and l_i is the mesh level in i-th dimension
-// 			double index_sum = 0.0;
-// 			for (int d = 0; d < DIM; d++)
-// 			{
-// 				// index_sum += wave_speed[d] * pow(2.0, iter.second.level[d]);
-// 				index_sum += local_wave_speed[d] * pow(2.0, iter.second.level[d]);
-// 			}
-// 			iter.second.ucoe_alpt[0] *= exp(- coefficient * index_sum * index_sum);
-// 		}
-// 	}
-// }
+		if (level_sum >= filter_start_level_sum)
+		{
+			// local wave speed
+			std::vector<double> local_wave_speed(DIM, 0.0);
+			
+			// use iter.second.xl and iter.second.xr to generate corner points
+			std::vector<std::vector<double>> corner_points;
+			if (DIM == 2)
+			{
+				for (int i = 0; i < 2; i++)
+				{
+					for (int j = 0; j < 2; j++)
+					{
+						std::vector<double> point(2);
+						point[0] = (i == 0) ? iter.second.xl[0] : iter.second.xr[0];
+						point[1] = (j == 0) ? iter.second.xl[1] : iter.second.xr[1];
+						corner_points.push_back(point);
+					}
+				}
+			}
+			else if (DIM == 3)
+			{
+				for (int i = 0; i < 2; i++)
+				{
+					for (int j = 0; j < 2; j++)
+					{
+						for (int k = 0; k < 2; k++)
+						{
+							std::vector<double> point(3);
+							point[0] = (i == 0) ? iter.second.xl[0] : iter.second.xr[0];
+							point[1] = (j == 0) ? iter.second.xl[1] : iter.second.xr[1];
+							point[2] = (k == 0) ? iter.second.xl[2] : iter.second.xr[2];
+							corner_points.push_back(point);
+						}
+					}
+				}
+			}
+			else
+			{
+				std::cout << "filter_local() does not support DIM > 3" << std::endl;
+				exit(1);
+			}
+
+			for (auto const & pt : corner_points)
+			{
+				for (int d = 0; d < DIM; d++)
+				{	
+					local_wave_speed[d] = std::max(abs(wave_speed_func(pt, d)), local_wave_speed[d]);
+				}
+			}
+
+			// compute c_1 * 2^(l_1) + c_2 * 2^(l_2) + ... + c_d * 2^(l_d)
+			// where c_i is the wave speed in i-th dimension
+			// and l_i is the mesh level in i-th dimension
+			double index_sum = 0.0;
+			for (int d = 0; d < DIM; d++)
+			{
+				index_sum += local_wave_speed[d] * pow(2.0, iter.second.level[d]);
+			}
+			iter.second.ucoe_alpt[0] *= exp(- coefficient * index_sum * index_sum);
+		}
+	}
+}
 
 // void DGAdapt::filter_viscosity(const double dt, const double dx, const int convergence_order, const double l2_norm_previous, const double amplify_factor)
 // {	

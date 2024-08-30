@@ -371,10 +371,14 @@ int main(int argc, char *argv[])
             
             odeSolver.step_stage(stage);
             odeSolver.final();
-        }
 
-		// add filter to solution for stability
-		dg_f.filter(filter_coef, max_wave_speed, dt, NMAX_coarse_grid_stage_1 + 1);
+			// add filter to solution for stability
+			if (stage == odeSolver.num_stage - 1)
+			{
+				// dg_f.filter(filter_coef, max_wave_speed, dt, NMAX_coarse_grid_stage_1 + 1);
+				dg_f.filter_local(filter_coef, coe_func, dt, NMAX_coarse_grid_stage_1 + 1);
+			}
+		}
 
 		curr_time += dt;
 		
