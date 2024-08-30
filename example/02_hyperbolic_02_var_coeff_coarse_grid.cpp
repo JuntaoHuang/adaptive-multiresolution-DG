@@ -399,7 +399,9 @@ int main(int argc, char *argv[])
 			std::cout << "num of time steps: " << num_time_step 
 					<< "; time step: " << dt 
 					<< "; curr time: " << curr_time
-					<< "; L2 norm: " << solu_l2_norm[0] << std::endl;
+					<< "; L2 norm: " << solu_l2_norm[0]
+					<< "; DoF: " << dg_f.get_dof()
+					<< std::endl;
 		}		
 	}
 
