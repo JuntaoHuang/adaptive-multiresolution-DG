@@ -19,11 +19,49 @@ For more details on the algorithm and package, see our paper:
 
 ## Documentation: [ReadTheDocs](https://adaptive-multiresolution-dg.readthedocs.io/en/latest/index.html)
 
-## Build Requirement:
+## Build Requirements
 
-- Complier: GCC 9.3.0
-- Dependency: [Eigen](https://eigen.tuxfamily.org/index.php?title=Main_Page)
-  
+- C++17 compiler (`g++` or `clang++`)
+- [Eigen](https://eigen.tuxfamily.org/index.php?title=Main_Page) headers (`Eigen/Eigen`)
+- OpenMP runtime (recommended for better performance)
+
+## Build Environment Setup
+
+### macOS (Homebrew)
+
+```sh
+brew install eigen libomp
+make
+```
+
+Notes:
+- The Makefile auto-detects Eigen include paths: `./eigen`, `/opt/homebrew/include/eigen3`, `/usr/local/include/eigen3`, `/usr/include/eigen3`.
+- On macOS, if `libomp` is installed, OpenMP flags are added automatically.
+
+### Ubuntu / Debian
+
+```sh
+sudo apt update
+sudo apt install -y g++ libeigen3-dev libomp-dev
+make
+```
+
+### If your dependencies are in a custom path
+
+```sh
+make EIGEN_INCLUDE=/path/to/eigen3
+```
+
+For macOS with non-standard OpenMP install path:
+
+```sh
+make LIBOMP_PREFIX=/path/to/libomp/prefix
+```
+
+### Common build errors
+
+- `Missing Eigen headers ...`: install Eigen and/or set `EIGEN_INCLUDE`.
+- `omp.h file not found` (usually macOS): install `libomp` with Homebrew.
 
 ## Run Example:
 

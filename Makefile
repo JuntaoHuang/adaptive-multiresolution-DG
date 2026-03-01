@@ -1,10 +1,35 @@
-CXX = g++-10 -fopenmp
+# Prefer g++-10 when available, otherwise fall back to common C++ compilers.
+CXX ?= $(or $(shell command -v g++-10 2>/dev/null),$(shell command -v g++ 2>/dev/null),$(shell command -v c++ 2>/dev/null),g++)
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+LIBOMP_PREFIX ?= $(or \
+	$(firstword $(wildcard /opt/homebrew/opt/libomp)), \
+	$(firstword $(wildcard /usr/local/opt/libomp)))
+ifneq ($(LIBOMP_PREFIX),)
+OPENMP_CFLAGS ?= -Xpreprocessor -fopenmp -I$(LIBOMP_PREFIX)/include
+OPENMP_LDFLAGS ?= -L$(LIBOMP_PREFIX)/lib -lomp
+else
+OPENMP_CFLAGS ?=
+OPENMP_LDFLAGS ?=
+endif
+else
+OPENMP_CFLAGS ?= -fopenmp
+OPENMP_LDFLAGS ?= -fopenmp
+endif
 
 # CPPFLAGS = -std=c++17 -g
 CPPFLAGS = -std=c++17 -O3
 #-Wall: open all warnings
 
-INCLUDES = -I include/ -I ./eigen/
+# Auto-detect Eigen include path; still overridable via:
+#   make EIGEN_INCLUDE=/path/to/eigen3
+EIGEN_INCLUDE ?= $(or \
+	$(firstword $(wildcard ./eigen)), \
+	$(firstword $(wildcard /opt/homebrew/include/eigen3)), \
+	$(firstword $(wildcard /usr/local/include/eigen3)), \
+	$(firstword $(wildcard /usr/include/eigen3)), \
+	./eigen)
+INCLUDES = -I include/ -I$(EIGEN_INCLUDE)
 
 ## gtest library as static library, with library file *.a stored in ./lib/
 #GTEST_LIBFLAGS = ./lib/libgtest.a
@@ -92,6 +117,20 @@ dirs:
 	@mkdir -p $(LIB_PATH)
 	@mkdir -p $(TEST_PATH)/obj
 
+### Check external dependencies
+
+.PHONY: check_deps
+check_deps:
+	@if [ ! -f "$(EIGEN_INCLUDE)/Eigen/Eigen" ]; then \
+		echo "Missing Eigen headers: $(EIGEN_INCLUDE)/Eigen/Eigen"; \
+		echo "Please install Eigen and rerun make."; \
+		echo "Detected EIGEN_INCLUDE=$(EIGEN_INCLUDE)"; \
+		echo "If needed, set EIGEN_INCLUDE manually, e.g."; \
+		echo "  make EIGEN_INCLUDE=/opt/homebrew/include/eigen3"; \
+		echo "  make EIGEN_INCLUDE=/usr/local/include/eigen3"; \
+		exit 1; \
+	fi
+
 
 
 
@@ -104,15 +143,15 @@ dirs:
 ### Create Shared Library
 
 .PHONY: $(BUILD_PATH)/%.o
-$(BUILD_PATH)/%.o: $(SRC_PATH)/%.cpp | dirs
+$(BUILD_PATH)/%.o: $(SRC_PATH)/%.cpp | dirs check_deps
 	@echo "Compile $< to output object $@ for shared library, based on auto-dependency in $(DEP_PATH)/$*.d"
-	@$(CXX) $(DEPFLAGS) $(CPPFLAGS) $(INCLUDES) -fPIC -c $< -o $@
+	@$(CXX) $(OPENMP_CFLAGS) $(DEPFLAGS) $(CPPFLAGS) $(INCLUDES) -fPIC -c $< -o $@
 
 
 $(LIB_FILE_NAME): $(OBJECTS)
 	@echo "Output shared library $@, current version is $(CURRENT_VERSION)"
 	@echo "Warning: Depending on the environment, you should use either option '-shared' in linux machine, or '-dynamiclib' in unix/OS machine"
-	@$(CXX) $(DYLBFLAGS) -o $@ $(OBJECTS)
+	@$(CXX) $(OPENMP_CFLAGS) $(DYLBFLAGS) -o $@ $(OBJECTS) $(OPENMP_LDFLAGS)
 	@echo "\n--------------------------------------------------------------------------------------------------"
 	@echo "Shared library $(LIB_FILE_NAME) is successfully created."
 	@echo "--------------------------------------------------------------------------------------------------\n\n"
@@ -165,15 +204,15 @@ doxygen:
 ### Create object and exectuable for examples
 
 .PHONY: $(BIN_PATH)/%.o | dirs
-$(BIN_PATH)/%.o : $(EXAMPLE_PATH)/%.$(SRC_EXT)
+$(BIN_PATH)/%.o : $(EXAMPLE_PATH)/%.$(SRC_EXT) | check_deps
 	@echo "Compile $< to output object $@ for examples, based on auto-dependency in $(DEP_PATH)/$*.d"
-	@$(CXX) $(DEPFLAGS) $(CPPFLAGS) $(INCLUDES) -c $< -o $@
+	@$(CXX) $(OPENMP_CFLAGS) $(DEPFLAGS) $(CPPFLAGS) $(INCLUDES) -c $< -o $@
 
 .PRECIOUS: $(BIN_PATH)/%.o
 .PHONY: $(BIN_PATH)/%
 $(BIN_PATH)/% : $(BIN_PATH)/%.o | sharedlib
 	@echo "Link all the shared library of sgdg and $< to get executable $@ for examples\n"
-	@$(CXX) -o $@ -L $(LIB_PATH)/ $< $(LIB_PATH)/libsgdg.so.$(CURRENT_VERSION)
+	@$(CXX) $(OPENMP_CFLAGS) -o $@ -L $(LIB_PATH)/ $< $(LIB_PATH)/libsgdg.so.$(CURRENT_VERSION) $(OPENMP_LDFLAGS)
 
 
 
@@ -191,14 +230,14 @@ $(BIN_PATH)/% : $(BIN_PATH)/%.o | sharedlib
 ### Create test objects and exectuables, and run the tests
 
 .PHONY: $(TEST_PATH)/obj/%.o
-$(TEST_PATH)/obj/%.o: $(TEST_PATH)/%.$(SRC_EXT) | dirs
+$(TEST_PATH)/obj/%.o: $(TEST_PATH)/%.$(SRC_EXT) | dirs check_deps
 	@echo "Compile test source $< to output object $@ for tests, based on auto-dependency in $(DEP_PATH)/$*.d"
-	@$(CXX) $(DEPFLAGS) $(CPPFLAGS) $(INCLUDES) -c $< -o $@ 
+	@$(CXX) $(OPENMP_CFLAGS) $(DEPFLAGS) $(CPPFLAGS) $(INCLUDES) -c $< -o $@ 
 
 .PHONY: $(TEST_PATH)/main
 $(TEST_PATH)/main: $(TESTOBJECTS) | $(LIB_FILE_NAME)
 	@echo "Link all the shared library of sgdg and $^ to get executable $@ for tests\n"
-	@$(CXX) -o $@ $(TESTOBJECTS) $(LIB_FILE_NAME) $(GTEST_LIBFLAGS) -lpthread
+	@$(CXX) $(OPENMP_CFLAGS) -o $@ $(TESTOBJECTS) $(LIB_FILE_NAME) $(GTEST_LIBFLAGS) -lpthread $(OPENMP_LDFLAGS)
 
 .PHONY: alltest
 alltest: $(TEST_PATH)/main
