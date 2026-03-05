@@ -23,11 +23,7 @@
 
 // command line options:
 // 
-// SSP RK3 with CFL = 0.1
-// -NM 8 -N0 2 -r 1e-4 -c 1e-5 -v -nu 0.2 -ssp -p 100 -cfl 0.1 -tf 1.0
-// 
-// IMEX with CFL = 0.2
-// -NM 8 -N0 2 -r 1e-4 -c 1e-5 -v -nu 0.2 -imex -p 100 -cfl 0.2 -tf 1.0
+// ./02_hyperbolic_06_burgers_shock_1D -NM 7 -N0 7 -cfl 0.1 -tf 0.2 -nu 1.0 -p 100 -v 1
 int main(int argc, char *argv[])
 {
 	// constant variable
@@ -153,11 +149,11 @@ int main(int argc, char *argv[])
 	DGAdapt dg_solu(sparse, N_init, NMAX, all_bas_alpt, all_bas_lagr, all_bas_herm, hash, refine_eps, coarsen_eta, is_adapt_find_ptr_alpt, is_adapt_find_ptr_intp);
 
 	// project initial function into numerical solution
-	// f(x,y) = sin(2*pi*x)
-	auto init_func = [](double x, int d) { return (sin(2.*Const::PI*x)); };
+	// f(x,y) = sin(2*pi*x) + 0.5
+	auto init_func = [](double x, int d) { return (sin(2.*Const::PI*x) + 0.5); };
 	dg_solu.init_separable_scalar(init_func);
 
-	const double burgers_init_a = 0.;
+	const double burgers_init_a = 0.5;
 	const double burgers_init_b = 1.;
 	const double burgers_init_c = 0.;
 	BurgersExact burgers(burgers_init_a, burgers_init_b, burgers_init_c);	
@@ -185,8 +181,8 @@ int main(int argc, char *argv[])
 	// fast hermite interpolation
 	FastHermIntp fastintp(dg_solu, interp.Her_pt_Alpt_1D);
 
-	const std::vector<double> lxf_alpha(DIM, 1.);
-	const std::vector<double> wave_speed(DIM, 1.);
+	const std::vector<double> lxf_alpha(DIM, 1.5);
+	const std::vector<double> wave_speed(DIM, 1.5);
 
 	// begin time evolution
 	std::cout << "--- evolution started ---" << std::endl;
@@ -213,7 +209,7 @@ int main(int argc, char *argv[])
 			sum_c_dx += std::abs(wave_speed[d]) * std::pow(2., max_mesh[d]);
 		}
 		double dt = cfl/sum_c_dx;
-		if (num_visc_elem==0) { dt = cfl_hyper/sum_c_dx; }
+		// if (num_visc_elem==0) { dt = cfl_hyper/sum_c_dx; }
 		dt = std::min( dt, final_time - curr_time );
 
 		// --- part 2: predict by Euler forward
@@ -261,78 +257,28 @@ int main(int argc, char *argv[])
 		nonlinear.assemble_matrix_flx_scalar(0, -1, 0.5);
 		nonlinear.assemble_matrix_flx_scalar(0, 1, 0.5);
 
-		// if there exist no artificial viscosity element, then use SSP-RK
-		if (num_visc_elem == 0)
-		{
-			RK3SSP odeSolver(linear, dt);
-			odeSolver.init();		
+		RK3SSP odeSolver(linear, dt);
+		odeSolver.init();		
 
-			for ( int stage = 0; stage < odeSolver.num_stage; ++stage )
-			{			
-				odeSolver.add_rhs_matrix(linear);
+		for ( int stage = 0; stage < odeSolver.num_stage; ++stage )
+		{			
+			odeSolver.add_rhs_matrix(linear);
 
-				interp.nonlinear_Herm_1D(func_flux, func_flux_d1, is_intp);
+			interp.nonlinear_Herm_1D(func_flux, func_flux_d1, is_intp);
 
-				odeSolver.fucoe_to_eigenvec(0);
-				odeSolver.add_rhs_matrix_intp(nonlinear);
+			odeSolver.fucoe_to_eigenvec(0);
+			odeSolver.add_rhs_matrix_intp(nonlinear);
 
-				odeSolver.step_stage(stage);
+			odeSolver.step_stage(stage);
 
-				odeSolver.final();
-			}
-		}
-		// if there exist artificial viscosity element, then use IMEX
-		else
-		{
-			// assemble artificial viscosity operator matrix
-			ArtificialViscosity artific_visc_operator(dg_solu, oper_matx_alpt, all_bas_alpt);
-			const int max_mesh_scalar = dg_solu.max_mesh_level();
-			const double h = 1./pow(2., max_mesh_scalar);			
-			artific_visc_operator.assemble_matrix( -artificial_viscosity_nu0*h );
+			odeSolver.final();
 
-			if (is_imex)
+			if (num_visc_elem != 0)
 			{
-				// use IMEX ODE solver
-				IMEX43 odeSolver(artific_visc_operator, dt);
-				odeSolver.init();
-
-				for ( int stage = 0; stage < odeSolver.num_stage; ++stage )
-				{
-					odeSolver.add_rhs_matrix(linear);
-
-					interp.nonlinear_Herm_1D(func_flux, func_flux_d1, is_intp);
-
-					odeSolver.fucoe_to_eigenvec(0);
-					odeSolver.add_rhs_matrix_intp(nonlinear);
-
-					odeSolver.step_stage(stage);
-
-					odeSolver.final();
-				}
-			}
-			else
-			{
-				// use RK3 SSP ODE solver
-				RK3SSP odeSolver(linear, dt);
-				odeSolver.init();		
-
-				for ( int stage = 0; stage < odeSolver.num_stage; ++stage )
-				{	
-					odeSolver.add_rhs_matrix(linear);
-
-					interp.nonlinear_Herm_1D(func_flux, func_flux_d1, is_intp);
-
-					odeSolver.fucoe_to_eigenvec(0);
-					odeSolver.add_rhs_matrix_intp(nonlinear);
-
-					odeSolver.add_rhs_matrix(artific_visc_operator);				
-
-					odeSolver.step_stage(stage);
-
-					odeSolver.final();
-				}	
-			}
-		}				
+				const double nu = artificial_viscosity_nu0 * (1./pow(2., max_mesh[0]));
+				dg_solu.filter_trouble_cell(nu, dt, viscosity_option);
+			}				
+		}	
 
 		// write shock support into file before coarsen (since coarsen may delete some element then cause nullptr in viscosity elements)
 		if (num_time_step % output_time_interval == 0)
@@ -371,12 +317,16 @@ int main(int argc, char *argv[])
 
 	std::cout << "--- evolution finished ---" << std::endl;
 
+	// output numerical solution and exact solution at final time
 	auto final_func = [&](std::vector<double> x)->double { return burgers.exact_1d(x[0], final_time); };
+
+	std::string file_name = "profile1D_final.txt";
+	inout.output_num_exa(file_name, final_func);
 
 	std::vector<double> err = dg_solu.get_error_no_separable_scalar(final_func, num_gauss_pt_compute_error);
 	std::cout << "L1, L2 and Linf error at final time: " << err[0] << ", " << err[1] << ", " << err[2] << std::endl;
 		
-	std::string file_name = "error_N" + std::to_string(NMAX) + ".txt";
+	file_name = "error_N" + std::to_string(NMAX) + ".txt";
 	inout.write_error(NMAX, err, file_name);
 	// ------------------------------
 

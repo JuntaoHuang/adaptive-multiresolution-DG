@@ -482,6 +482,27 @@ void DGAdapt::filter(const double damp_coef, const std::vector<double> & wave_sp
 	}
 }
 
+
+void DGAdapt::filter_trouble_cell(const double nu, const double dt, const int viscosity_option)
+{
+	// if viscosity_element is empty, then do nothing
+	if (viscosity_element.empty()) { return; }
+
+	// loop over all the elements in viscosity_element and apply filter
+	for (auto const & elem : viscosity_element)
+	{
+		// compute 4^(l_1) + 4^(l_2) + ... + 4^(l_d)
+		double index_sum = 0.0;
+		for (int d = 0; d < DIM; d++)
+		{
+			index_sum += pow(4.0, elem->level[d]);
+		}
+
+		// damp the coefficient in the element according to the filter formula
+		elem->ucoe_alpt[0] *= exp(- nu * dt * 4 * M_PI * M_PI * index_sum);
+	}
+}
+
 void DGAdapt::filter_local(const double damp_coef, std::function<double(std::vector<double>, int)> wave_speed_func, const double dt, const int filter_start_level_sum)
 {
 	const double coefficient = damp_coef * (dt * dt / 2.0) * (M_PI * M_PI);

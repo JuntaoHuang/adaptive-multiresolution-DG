@@ -73,6 +73,12 @@ public:
 	// filter coefficients of DG solution from a given level
 	void filter(const double damp_coef, const std::vector<double> & wave_speed, const double dt, const int filter_start_level_sum);
 
+	// filter coefficients of DG solution in the viscosity element
+	// viscosity_option:
+	// 1 -> elements intersecting the viscosity element
+	// 2 -> all parent elements of the viscosity element
+	void filter_trouble_cell(const double nu, const double dt, const int viscosity_option);
+
 	// filter coefficients of DG solution from a given level based on local wave speed
 	void filter_local(const double damp_coef, std::function<double(std::vector<double>, int)> wave_speed_func, const double dt, const int filter_start_level_sum);	
 
@@ -166,4 +172,3 @@ private:
 	// return number of all children (no matter if already in dg) of element with given mesh level n
 	int num_all_chd(const std::vector<int> & lev_n) const;
 };
-
