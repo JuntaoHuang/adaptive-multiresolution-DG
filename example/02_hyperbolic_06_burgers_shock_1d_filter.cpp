@@ -16,6 +16,7 @@
 #include "OperatorMatrix1D.h"
 #include "Optparser.h"
 #include "Quad.h"
+#include "RunRecord.h"
 #include "subs.h"
 #include "VecMultiD.h"
 #include "FastMultiplyLU.h"
@@ -23,7 +24,13 @@
 
 // command line options:
 // 
-// ./02_hyperbolic_06_burgers_shock_1D -NM 7 -N0 7 -cfl 0.1 -tf 0.2 -nu 1.0 -p 100 -v 1
+// no adaptivity, full grid DG:
+// 
+// ./02_hyperbolic_06_burgers_shock_1d_filter -NM 7 -N0 7 -cfl 0.1 -tf 0.2 -nu 1.0 -p 100 -v 1
+// 
+// adaptive sparse grid DG:
+// 
+// ./02_hyperbolic_06_burgers_shock_1d_filter -NM 7 -N0 7 -r 1e-3 -c 1e-4 -cfl 0.1 -tf 0.2 -nu 1.0 -p 100 -v 1
 int main(int argc, char *argv[])
 {
 	// constant variable
@@ -120,6 +127,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 	args.PrintOptions(std::cout);
+	RunRecord::write_run_record(argc, argv);
 
 	// check mesh level in initialization should be less or equal to maximum mesh level
 	if (N_init>NMAX) { std::cout << "Mesh level in initialization should not be larger than Maximum mesh level" << std::endl; return 1; }
